@@ -102,24 +102,27 @@
                 const mins = Math.round(route.duration / 60);
                 
                 document.getElementById('route-info').innerHTML = `Time: ${mins} min | Dist: ${miles} miles <button id="ai-btn">Get AI Narrative</button>`;
-                
-                document.getElementById('ai-btn').onclick = async () => {
-                    document.getElementById('ai-btn').innerText = "Generating...";
-                    const osrmData = map.getSource('route')._data;
-                    
-                    const res = await fetch('/api/ai-narrative', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            osrmData: osrmData, 
-                            destination: props.NAME 
-                        })
-                    });
-                    
-                    const result = await res.json();
-                    const narrative = result[0]?.generated_text?.split("[/INST]")[1] || "Narrative generation failed.";
-                    document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${narrative}</p>`;
-                };
+
+		document.getElementById('ai-btn').onclick = async () => {
+		    document.getElementById('ai-btn').innerText = "Generating...";
+		    const osrmData = map.getSource('route')._data;
+
+		    const res = await fetch('/api/ai-narrative', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+			    osrmData: osrmData,
+			    destination: props.NAME
+			})
+		    });
+
+		    const result = await res.json();
+    
+		    // The SDK returns the text cleanly as a property
+		    const narrative = result.generated_text || "Narrative generation failed.";
+		    
+		    document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${narrative}</p>`;
+		};
 
                 renderRoute(route.geometry);
             } catch (e) { alert("Could not calculate route."); }

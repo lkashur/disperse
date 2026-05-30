@@ -1,0 +1,7 @@
+{
+  "name": "national-forest-explorer",
+  "version": "1.0.0",
+  "dependencies": {
+    "@huggingface/inference": "^2.8.1"
+  }
+}
