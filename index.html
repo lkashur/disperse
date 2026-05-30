@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>National Forest Explorer</title>
+    <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <style>
+        body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
+        #header { padding: 20px; text-align: center; }
+        #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
+        #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; }
+        #map-wrapper { flex-grow: 1; position: relative; }
+        #map { width: 100%; height: 600px; border: 1px solid #999; }
+        select, button { width: 100%; padding: 10px; margin-top: 10px; cursor: pointer; }
+        .maplibregl-ctrl-group button { display: flex !important; align-items: center !important; justify-content: center !important; width: 30px !important; height: 30px !important; }
+        .route-warning { font-size: 10px; color: #d32f2f; margin-top: 10px; line-height: 1.2; }
+        #route-info { margin-top: 10px; font-weight: bold; color: #1976d2; }
+    </style>
+</head>
+<body>
+
+<div id="header"><h1>National Forest Explorer</h1></div>
+
+<div id="main-container">
+    <div id="sidebar">
+        <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
+        <select id="base-selector">
+            <option value="streets-v2" selected>Standard (Streets)</option>
+            <option value="outdoor-v2">Outdoor</option>
+            <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
+        </select>
+        <button id="toggle-roads">Toggle MVUM Roads</button>
+    </div>
+    <div id="map-wrapper"><div id="map"></div></div>
+</div>
+
+<script>
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+
+    const KEY = 'MAPTILER_KEY';
+    let roadsVisible = false;
+    let currentFile = null;
+    let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
+
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${KEY}`,
+        center: [-98.6, 39.8],
+        zoom: 3
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+    function syncRoads() {
+        if (map.getLayer('road-casing')) map.removeLayer('road-casing');
+        if (map.getLayer('road-core')) map.removeLayer('road-core');
+        if (map.getSource('roads')) map.removeSource('roads');
+
+        if (roadsVisible && currentFile && map.isStyleLoaded()) {
+            map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentFile}` });
+            map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
+            map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
+            if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
+        }
+    }
+
+    map.on('idle', () => {
+        if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads();
+    });
+
+    map.on('click', 'road-core', async (e) => {
+        const props = e.features[0].properties;
+        const coords = e.lngLat;
+
+        popup.setLngLat(coords).setHTML(`
+            <strong>Name:</strong> ${props.NAME || 'N/A'}<br>
+            <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
+            <button id="btn-get-route">Get Directions</button>
+            <div id="route-info"></div>
+            <p class="route-warning"><strong>⚠️ Warning:</strong> Verify closures with USFS MVUM.</p>
+        `).addTo(map);
+
+        document.getElementById('btn-get-route').onclick = async () => {
+            const fromText = document.getElementById('from-location').value;
+            if (!fromText) return alert("Enter a starting location");
+
+            try {
+                const geo = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(fromText)}.json?key=${KEY}`).then(r => r.json());
+                const from = geo.features[0].center;
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${from[0]},${from[1]};${coords.lng},${coords.lat}?overview=full&geometries=geojson`;
+                const data = await fetch(osrmUrl).then(r => r.json());
+
+                if (data.code !== 'Ok') throw new Error();
+
+                const route = data.routes[0];
+                const miles = (route.distance / 1609.34).toFixed(1);
+                const mins = Math.round(route.duration / 60);
+                
+                // --- ADDED AI NARRATIVE TRIGGER ---
+                document.getElementById('route-info').innerHTML = `Time: ${mins} min | Dist: ${miles} miles <button id="ai-btn">Get AI Narrative</button>`;
+                
+                document.getElementById('ai-btn').onclick = async () => {
+                    document.getElementById('ai-btn').innerText = "Generating...";
+                    const res = await fetch('/api/ai-narrative', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: `From ${fromText} to ${props.NAME}` })
+                    });
+                    const result = await res.json();
+                    document.getElementById('route-info').innerHTML += `<p>${result[0]?.generated_text?.split("[/INST]")[1] || "Narrative failed."}</p>`;
+                };
+
+                renderRoute(route.geometry);
+            } catch (e) { alert("Could not calculate route."); }
+        };
+    });
+
+    function renderRoute(geometry) {
+        if (map.getSource('route')) {
+            map.getSource('route').setData(geometry);
+        } else {
+            map.addSource('route', { type: 'geojson', data: geometry });
+            map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
+            map.addLayer({
+                id: 'route-arrows', type: 'symbol', source: 'route',
+                layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false },
+                paint: { 'text-color': '#1976d2' }
+            });
+        }
+    }
+
+    document.getElementById('base-selector').addEventListener('change', (e) => {
+        popup.remove();
+        const routeData = map.getSource('route') ? map.getSource('route')._data : null;
+        map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${KEY}`);
+        const restoreOnIdle = () => {
+            if (map.isStyleLoaded()) {
+                if (routeData) renderRoute(routeData);
+                map.off('idle', restoreOnIdle);
+            }
+        };
+        map.on('idle', restoreOnIdle);
+    });
+
+    map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
+
+    document.getElementById('forest-select').addEventListener('change', (e) => {
+        const data = JSON.parse(e.target.value);
+        currentFile = e.target.selectedOptions[0].dataset.file;
+        map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
+        popup.remove();
+        syncRoads();
+    });
+
+    document.getElementById('toggle-roads').addEventListener('click', () => {
+        if (!currentFile) return alert("Select a forest first");
+        roadsVisible = !roadsVisible;
+        if (!roadsVisible) popup.remove();
+        syncRoads();
+    });
+
+    fetch('forests.json').then(r => r.json()).then(data => {
+        const select = document.getElementById('forest-select');
+        data.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify(f.bounds); opt.dataset.file = f.file; opt.text = f.name;
+            select.appendChild(opt);
+        });
+    });
+</script>
+</body>
+</html>
