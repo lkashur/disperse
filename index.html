@@ -93,7 +93,7 @@
             try {
                 const geo = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(fromText)}.json?key=${KEY}`).then(r => r.json());
                 const from = geo.features[0].center;
-                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${from[0]},${from[1]};${coords.lng},${coords.lat}?overview=full&geometries=geojson`;
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${from[0]},${from[1]};${coords.lng},${coords.lat}?overview=full&geometries=geojson&steps=true`;
                 const data = await fetch(osrmUrl).then(r => r.json());
 
                 if (data.code !== 'Ok') throw new Error();
