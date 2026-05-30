@@ -44,6 +44,7 @@
     const KEY = 'zv7FEIO8sqVopXQmnmD3';
     let roadsVisible = false;
     let currentFile = null;
+    let currentRouteData = null;
     let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
 
     const map = new maplibregl.Map({
@@ -97,6 +98,7 @@
 
                 if (data.code !== 'Ok') throw new Error();
 
+                currentRouteData = data;
                 const route = data.routes[0];
                 const miles = (route.distance / 1609.34).toFixed(1);
                 const mins = Math.round(route.duration / 60);
@@ -105,7 +107,7 @@
 
 		document.getElementById('ai-btn').onclick = async () => {
 		    document.getElementById('ai-btn').innerText = "Generating...";
-		    const osrmData = map.getSource('route')._data;
+		    const osrmData = currentRouteData;
 
 		    const res = await fetch('/api/ai-narrative', {
 			method: 'POST',
