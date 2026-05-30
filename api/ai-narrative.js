@@ -1,43 +1,23 @@
-import https from 'https';
+import { createHuggingFace } from '@ai-sdk/huggingface';
+import { generateText } from 'ai';
+
+const hf = createHuggingFace({
+  apiKey: process.env.HF_TOKEN,
+});
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-
   const { osrmData, destination } = req.body;
-  const postData = JSON.stringify({
-    inputs: `[INST] Summarize these navigation instructions for ${destination}: ${JSON.stringify(osrmData)} [/INST]`
-  });
 
-  const options = {
-    hostname: 'api-inference.huggingface.co',
-    path: '/models/mistralai/Mistral-7B-Instruct-v0.3',
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.HF_TOKEN}`,
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData),
-      'User-Agent': 'Vercel-Function/1.0' // Crucial for HF compliance
-    }
-  };
-
-  return new Promise((resolve) => {
-    const request = https.request(options, (response) => {
-      let data = '';
-      response.on('data', (chunk) => { data += chunk; });
-      response.on('end', () => {
-        // Return whatever the API sent back (even if it's an error)
-        res.status(response.statusCode).json({ status: response.statusCode, body: data });
-        resolve();
-      });
+  try {
+    const { text } = await generateText({
+      model: hf('mistralai/Mistral-7B-Instruct-v0.3'),
+      prompt: `[INST] Summarize these navigation instructions for ${destination}: ${JSON.stringify(osrmData)} [/INST]`,
     });
 
-    request.on('error', (e) => {
-      console.error("HTTPS Request Error:", e);
-      res.status(500).json({ error: "Native HTTPS request failed", details: e.message });
-      resolve();
-    });
-
-    request.write(postData);
-    request.end();
-  });
+    return res.status(200).json({ generated_text: text });
+  } catch (error) {
+    console.error("Vercel AI SDK Error:", error);
+    return res.status(500).json({ error: "Generation failed" });
+  }
 }
