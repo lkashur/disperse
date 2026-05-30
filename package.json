@@ -2,6 +2,8 @@
   "name": "national-forest-explorer",
   "version": "1.0.0",
   "dependencies": {
-    "@huggingface/inference": "^2.8.1"
+    "@ai-sdk/huggingface": "^1.0.50",
+    "@huggingface/inference": "^2.8.1",
+    "ai": "^6.0.193"
   }
 }
