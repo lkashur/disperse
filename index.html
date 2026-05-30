@@ -101,18 +101,24 @@
                 const miles = (route.distance / 1609.34).toFixed(1);
                 const mins = Math.round(route.duration / 60);
                 
-                // --- ADDED AI NARRATIVE TRIGGER ---
                 document.getElementById('route-info').innerHTML = `Time: ${mins} min | Dist: ${miles} miles <button id="ai-btn">Get AI Narrative</button>`;
                 
                 document.getElementById('ai-btn').onclick = async () => {
                     document.getElementById('ai-btn').innerText = "Generating...";
+                    const osrmData = map.getSource('route')._data;
+                    
                     const res = await fetch('/api/ai-narrative', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt: `From ${fromText} to ${props.NAME}` })
+                        body: JSON.stringify({ 
+                            osrmData: osrmData, 
+                            destination: props.NAME 
+                        })
                     });
+                    
                     const result = await res.json();
-                    document.getElementById('route-info').innerHTML += `<p>${result[0]?.generated_text?.split("[/INST]")[1] || "Narrative failed."}</p>`;
+                    const narrative = result[0]?.generated_text?.split("[/INST]")[1] || "Narrative generation failed.";
+                    document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${narrative}</p>`;
                 };
 
                 renderRoute(route.geometry);
