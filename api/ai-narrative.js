@@ -8,7 +8,7 @@ const hf = createHuggingFace({
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { osrmData, destination, startAddress } = req.body; // Added startAddress for accuracy
+  const { osrmData, destination, startAddress } = req.body;
 
   const steps = osrmData?.routes?.[0]?.legs?.[0]?.steps;
   
@@ -16,7 +16,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Filter: Keep meaningful steps (> 100 meters).
   const simplifiedSteps = steps
     .filter(step => step.distance > 100) 
     .map(step => ({
@@ -28,15 +27,17 @@ export default async function handler(req, res) {
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Provide a concise, one-paragraph driving summary to ${destination}.
+      prompt: `You are a professional navigation assistant. Provide a summary to ${destination}.
 
-      Rules:
-      - Starting Location: Use the provided starting address "${startAddress}". If this address is clearly within a city or town, begin the summary with "From [City/Town], take...". If the address is in a rural or remote area, begin with "From [Address]".
-      - Maneuvers: Use the specific maneuver provided in the route data (e.g., "Turn left", "Merge onto", "Take the exit"). Prioritize relative directions (Left/Right) but use cardinal directions (North/South) when helpful for highway or country road identification.
-      - Tone: Strictly neutral and direct. No filler or conversational text.
-      - Formatting: Single paragraph, max 75 words.
+      Strict Rules:
+      - Start: Use "From [City/Town], take..." based on "${startAddress}". If no city is apparent, use "From the starting area, take...".
+      - Exclude: Do NOT name the specific starting street. 
+      - Simplify: Condense local departures into one phrase.
+      - Maneuvers: Use "Turn", "Merge", or "Take exit". 
+      - Tone: Neutral, direct.
+      - Constraint: Max 60 words.
       
-      Route Data: ${JSON.stringify(simplifiedSteps)}`,
+      Data: ${JSON.stringify(simplifiedSteps)}`,
     });
 
     return res.status(200).json({ generated_text: text });
