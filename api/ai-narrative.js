@@ -15,10 +15,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Aggressive Filtering: Keep only major transitions ( > 1 mile)
+  // PRUNING: We filter for steps > 0.5 miles (approx 800m). 
+  // This helps remove "local neighborhood" turns before the AI even sees them.
   const simplifiedSteps = steps
-    .filter(step => step.distance > 1609 || step.maneuver.type.includes('new name')) 
+    .filter(step => step.distance > 800) 
     .map(step => ({
+      maneuver: step.maneuver.type, // We now pass the maneuver type
       instruction: step.maneuver.instruction,
       name: step.name || "the road",
       distance: `${(step.distance / 1609.34).toFixed(1)} miles`
@@ -30,10 +32,11 @@ export default async function handler(req, res) {
       prompt: `You are a professional navigation assistant. Create a summarized driving itinerary to ${destination}.
 
       Rules:
-      1. Format: Output a SINGLE, flowing paragraph. DO NOT use numbered lists.
-      2. Start: Begin the paragraph with "From [City], take..." (use "${startAddress}" for the location). If the city is unknown, start with "From your starting location, take...".
-      3. Content: Describe the route using the provided data points as a guide for major road changes. Focus on the major highways and the final approach. 
-      4. Length: Max 75 words.
+      1. Extraction: Analyze "${startAddress}". If a city or town is found, begin with "From [City], take...". Do not include street addresses.
+      2. Filtering: Ignore all neighborhood or residential street names. Start the directions at the first major arterial road or highway.
+      3. Clarity: Use clear directional commands like "Turn left," "Turn right," "Merge," "Take the exit," or "Keep straight." Do not just list road names.
+      4. Format: A single, flowing paragraph. No numbered lists.
+      5. Length: Max 75 words.
       
       Route Data: ${JSON.stringify(simplifiedSteps)}`,
     });
