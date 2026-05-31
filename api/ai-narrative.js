@@ -15,10 +15,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Filter: Keep significant steps (long distance or major junctions)
-  // This helps remove tiny local residential segments automatically
+  // Aggressive Filtering: Keep only major transitions ( > 1 mile)
   const simplifiedSteps = steps
-    .filter(step => step.distance > 500 || step.maneuver.type.includes('turn') || step.maneuver.type.includes('exit'))
+    .filter(step => step.distance > 1609 || step.maneuver.type.includes('new name')) 
     .map(step => ({
       instruction: step.maneuver.instruction,
       name: step.name || "the road",
@@ -28,14 +27,13 @@ export default async function handler(req, res) {
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Create a driving itinerary to ${destination}.
+      prompt: `You are a professional navigation assistant. Create a summarized driving itinerary to ${destination}.
 
       Rules:
-      1. Start: Identify the city or town from "${startAddress}". Begin the sentence with "From [City/Town], take...". If no city/town is clear, use "From the starting location, take...".
-      2. Pruning: The provided route data includes local residential streets. IGNORE these initial neighborhood turns. Start your itinerary at the first major arterial road, highway, or interstate transition.
-      3. Sequence: List major highway transitions, exits, and turns in order. DO NOT skip sections of the trip.
-      4. Terminology: Use "Turn", "Merge", or "Take the exit".
-      5. Length: Max 75 words.
+      1. Format: Output a SINGLE, flowing paragraph. DO NOT use numbered lists.
+      2. Start: Begin the paragraph with "From [City], take..." (use "${startAddress}" for the location). If the city is unknown, start with "From your starting location, take...".
+      3. Content: Describe the route using the provided data points as a guide for major road changes. Focus on the major highways and the final approach. 
+      4. Length: Max 75 words.
       
       Route Data: ${JSON.stringify(simplifiedSteps)}`,
     });
