@@ -16,9 +16,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Filter out tiny, useless segments (< 50 meters) to stop the AI from rambling
+  // Filter: Keep only significant segments (>1km) or major turns/merges
   const simplifiedSteps = steps
-    .filter(step => step.distance > 50) 
+    .filter(step => step.distance > 1000 || step.maneuver.type.includes('turn') || step.maneuver.type.includes('merge'))
     .map(step => ({
       instruction: step.maneuver.instruction,
       name: step.name || "the road",
@@ -28,16 +28,13 @@ export default async function handler(req, res) {
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a friendly forest ranger guiding a DRIVER in a vehicle. Summarize these navigation instructions to reach ${destination}: ${JSON.stringify(simplifiedSteps)}.
-      
-      Strict rules for driving directions:
-      - Assume the user is driving a vehicle. DO NOT mention walking, hiking, or pedestrians.
-      - If an instruction says "head east" or "continue," assume the user is driving.
-      - Use road names (like "${destination}") to guide the user.
-      - Use simple distances (e.g., "drive 5 miles").
-      - Write like a local giving directions: "Take [Road Name], drive [X] miles, then turn left onto [Road Name]."
-      - Do not include raw data, JSON, or lists.
-      - Max 50 words.`,
+      prompt: `You are a neutral navigation assistant. Summarize the following route to ${destination} for a driver: ${JSON.stringify(simplifiedSteps)}.
+
+      Rules:
+      - Generalize the start: If the route begins in a residential or minor area, ignore the local street start. Begin the summary from the nearest major road, highway, or town.
+      - Tone: Strictly professional, neutral, and direct. No filler, no greetings, no personality.
+      - Content: Focus on major transitions, highway changes, and significant route turns only.
+      - Formatting: Plain text paragraph. Max 60 words.`,
     });
 
     return res.status(200).json({ generated_text: text });
