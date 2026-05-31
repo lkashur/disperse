@@ -16,8 +16,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
+  // Filter: Keep meaningful steps (> 200 meters) to avoid local "noise"
   const simplifiedSteps = steps
-    .filter(step => step.distance > 100) 
+    .filter(step => step.distance > 200) 
     .map(step => ({
       instruction: step.maneuver.instruction,
       name: step.name || "the road",
@@ -27,17 +28,16 @@ export default async function handler(req, res) {
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Provide a summary to ${destination}.
+      prompt: `You are a professional navigation assistant. Write a concise driving itinerary to ${destination} using ONLY the provided route data.
 
       Strict Rules:
-      - Start: Use "From [City/Town], take..." based on "${startAddress}". If no city is apparent, use "From the starting area, take...".
-      - Exclude: Do NOT name the specific starting street. 
-      - Simplify: Condense local departures into one phrase.
-      - Maneuvers: Use "Turn", "Merge", or "Take exit". 
-      - Tone: Neutral, direct.
-      - Constraint: Max 60 words.
+      - Start: Begin with "From [City/Town], take..." based on "${startAddress}". If no city is clear, use "From the starting location, take...". DO NOT mention the specific street name.
+      - Integrity: Use the exact maneuvers (Turn, Merge, Exit) from the data provided. Do not invent connections between roads.
+      - Conciseness: Skip minor streets. Focus only on major transitions and highway changes.
+      - Tone: Neutral and direct. 
+      - Limit: Max 60 words.
       
-      Data: ${JSON.stringify(simplifiedSteps)}`,
+      Route Data: ${JSON.stringify(simplifiedSteps)}`,
     });
 
     return res.status(200).json({ generated_text: text });
