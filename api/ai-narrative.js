@@ -5,6 +5,12 @@ const hf = createHuggingFace({
   apiKey: process.env.HF_TOKEN,
 });
 
+// Helper to group roads even if they have slight naming variations
+function getCanonicalName(name) {
+  if (!name) return "the road";
+  return name.replace(/\b(Hwy|Hwy\.|Highway|Rd\.|Road|St\.|Street|Ave\.|Avenue)\b/gi, "").trim().toLowerCase();
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
@@ -15,11 +21,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // 1. Merge consecutive steps that share the same road name
-  // This cleans up the data so the AI only sees major road transitions
-  const mergedSteps = steps.reduce((acc, step) => {
+  // 1. Group segments by road name
+  const roadSegments = steps.reduce((acc, step) => {
+    const canonicalName = getCanonicalName(step.name);
     const lastStep = acc[acc.length - 1];
-    if (lastStep && step.name === lastStep.name) {
+
+    if (lastStep && getCanonicalName(lastStep.name) === canonicalName) {
       lastStep.distance += step.distance;
     } else {
       acc.push({ name: step.name || "the road", distance: step.distance });
@@ -27,28 +34,26 @@ export default async function handler(req, res) {
     return acc;
   }, []);
 
-  // 2. Filter: Only keep segments that are substantial (e.g., > 1 mile)
-  // This automatically prunes small local residential roads
-  const cleanData = mergedSteps
-    .filter(step => step.distance > 1609) 
+  // 2. Extract only MAJOR legs (segments > 3 miles / ~4800 meters)
+  // This discards neighborhood noise while keeping the map route accurate
+  const majorRoute = roadSegments
+    .filter(step => step.distance > 4800) 
     .map(step => ({
       road: step.name,
-      distance: `${(step.distance / 1609.34).toFixed(1)} miles`
+      distance: `${(step.distance / 1609.34).toFixed(0)} miles`
     }));
 
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigator. Create a concise, human-readable driving summary to ${destination}.
+      prompt: `You are a navigator. Create a driving summary based on this route data: ${JSON.stringify(majorRoute)}.
 
       Rules:
-      1. Start: Begin with "From [City], take..." (Use "${startAddress}" to identify the city).
-      2. Format: Output a single, flowing paragraph. DO NOT use lists, DO NOT use numbers.
-      3. Content: Describe the route as a sequence of road transitions using the provided road names and distances.
-      4. Constraint: DO NOT invent maneuvers like "turn left" or "take the exit" if they are not in the data. Only describe the road name changes.
-      5. Length: Max 75 words.
-      
-      Route Data: ${JSON.stringify(cleanData)}`,
+      1. Start: Begin exactly with "From [City], take...". Extract the city from "${startAddress}".
+      2. Format: Output a single, professional, flowing paragraph. DO NOT use numbered lists.
+      3. Content: Describe the route as a sequence of road transitions. Use "Follow [Road] for [Distance]". 
+      4. Constraint: DO NOT mention local residential streets. DO NOT invent turns. Only use the names and distances provided.
+      5. Length: Max 75 words.`,
     });
 
     return res.status(200).json({ generated_text: text });
