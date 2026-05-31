@@ -9,16 +9,16 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const { osrmData, destination, startAddress } = req.body;
-
   const steps = osrmData?.routes?.[0]?.legs?.[0]?.steps;
-  
+
   if (!steps || steps.length === 0) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Filter: Keep meaningful steps (> 200 meters) to avoid local "noise"
+  // Filter: Keep significant steps (long distance or major junctions)
+  // This helps remove tiny local residential segments automatically
   const simplifiedSteps = steps
-    .filter(step => step.distance > 200) 
+    .filter(step => step.distance > 500 || step.maneuver.type.includes('turn') || step.maneuver.type.includes('exit'))
     .map(step => ({
       instruction: step.maneuver.instruction,
       name: step.name || "the road",
@@ -28,14 +28,14 @@ export default async function handler(req, res) {
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Write a concise driving itinerary to ${destination} using ONLY the provided route data.
+      prompt: `You are a professional navigation assistant. Create a driving itinerary to ${destination}.
 
-      Strict Rules:
-      - Start: Begin with "From [City/Town], take..." based on "${startAddress}". If no city is clear, use "From the starting location, take...". DO NOT mention the specific street name.
-      - Integrity: Use the exact maneuvers (Turn, Merge, Exit) from the data provided. Do not invent connections between roads.
-      - Conciseness: Skip minor streets. Focus only on major transitions and highway changes.
-      - Tone: Neutral and direct. 
-      - Limit: Max 60 words.
+      Rules:
+      1. Start: Identify the city or town from "${startAddress}". Begin the sentence with "From [City/Town], take...". If no city/town is clear, use "From the starting location, take...".
+      2. Pruning: The provided route data includes local residential streets. IGNORE these initial neighborhood turns. Start your itinerary at the first major arterial road, highway, or interstate transition.
+      3. Sequence: List major highway transitions, exits, and turns in order. DO NOT skip sections of the trip.
+      4. Terminology: Use "Turn", "Merge", or "Take the exit".
+      5. Length: Max 75 words.
       
       Route Data: ${JSON.stringify(simplifiedSteps)}`,
     });

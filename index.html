@@ -108,13 +108,15 @@
 		document.getElementById('ai-btn').onclick = async () => {
 		    document.getElementById('ai-btn').innerText = "Generating...";
 		    const osrmData = currentRouteData;
+            const startAddress = document.getElementById('from-location').value;
 
 		    const res = await fetch('/api/ai-narrative', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 			    osrmData: osrmData,
-			    destination: props.NAME
+			    destination: props.NAME,
+                startAddress: startAddress
 			})
 		    });
 
