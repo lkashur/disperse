@@ -16,8 +16,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Filter: Keep meaningful steps (> 100 meters). 
-  // This preserves local connectors while removing "keep straight" noise.
+  // Filter: Keep meaningful steps (> 100 meters).
   const simplifiedSteps = steps
     .filter(step => step.distance > 100) 
     .map(step => ({
@@ -32,9 +31,10 @@ export default async function handler(req, res) {
       prompt: `You are a professional navigation assistant. Provide a concise, one-paragraph driving summary to ${destination}.
 
       Strict Rules:
-      - Summarize the route: Focus on major transitions, highways, and major arterials.
-      - Combine local navigation: If there is a sequence of minor neighborhood/local road turns, combine them into a single instruction (e.g., "Navigate local roads for 1.2 miles to reach Highway 101").
-      - Tone: Strictly neutral and direct. No filler, no greetings, no conversational language.
+      - Starting Location: Normalize the starting point. If the route begins in a city, start the summary with "From [City], take...". DO NOT mention specific street names for the first 1-2 miles.
+      - Directional Language: Use relative turns (Turn left, Turn right, Merge) ONLY. Do not use cardinal directions (North, South, East, West).
+      - Summarize: Focus on major transitions, highways, and significant arterials. Combine minor local road clusters into general directions.
+      - Tone: Strictly neutral and direct. No filler, no conversational language.
       - Format: Single paragraph. Max 60 words.
       
       Route Data: ${JSON.stringify(simplifiedSteps)}`,
