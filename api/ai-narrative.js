@@ -8,7 +8,7 @@ const hf = createHuggingFace({
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { osrmData, destination } = req.body;
+  const { osrmData, destination, startAddress } = req.body; // Added startAddress for accuracy
 
   const steps = osrmData?.routes?.[0]?.legs?.[0]?.steps;
   
@@ -30,12 +30,11 @@ export default async function handler(req, res) {
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
       prompt: `You are a professional navigation assistant. Provide a concise, one-paragraph driving summary to ${destination}.
 
-      Strict Rules:
-      - Starting Location: Normalize the starting point. If the route begins in a city, start the summary with "From [City], take...". DO NOT mention specific street names for the first 1-2 miles.
-      - Directional Language: Use relative turns (Turn left, Turn right, Merge) ONLY. Do not use cardinal directions (North, South, East, West).
-      - Summarize: Focus on major transitions, highways, and significant arterials. Combine minor local road clusters into general directions.
-      - Tone: Strictly neutral and direct. No filler, no conversational language.
-      - Format: Single paragraph. Max 60 words.
+      Rules:
+      - Starting Location: Use the provided starting address "${startAddress}". If this address is clearly within a city or town, begin the summary with "From [City/Town], take...". If the address is in a rural or remote area, begin with "From [Address]".
+      - Maneuvers: Use the specific maneuver provided in the route data (e.g., "Turn left", "Merge onto", "Take the exit"). Prioritize relative directions (Left/Right) but use cardinal directions (North/South) when helpful for highway or country road identification.
+      - Tone: Strictly neutral and direct. No filler or conversational text.
+      - Formatting: Single paragraph, max 75 words.
       
       Route Data: ${JSON.stringify(simplifiedSteps)}`,
     });
