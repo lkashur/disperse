@@ -15,28 +15,40 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Navigation steps not found." });
   }
 
-  // Filter: Keep turns > 0.5 miles (approx 800m). 
-  // This removes neighborhood blocks but keeps major highway turns and exits.
-  const simplifiedSteps = steps
-    .filter(step => step.distance > 800) 
+  // 1. Merge consecutive steps that share the same road name
+  // This cleans up the data so the AI only sees major road transitions
+  const mergedSteps = steps.reduce((acc, step) => {
+    const lastStep = acc[acc.length - 1];
+    if (lastStep && step.name === lastStep.name) {
+      lastStep.distance += step.distance;
+    } else {
+      acc.push({ name: step.name || "the road", distance: step.distance });
+    }
+    return acc;
+  }, []);
+
+  // 2. Filter: Only keep segments that are substantial (e.g., > 1 mile)
+  // This automatically prunes small local residential roads
+  const cleanData = mergedSteps
+    .filter(step => step.distance > 1609) 
     .map(step => ({
-      instruction: step.maneuver.instruction, 
+      road: step.name,
       distance: `${(step.distance / 1609.34).toFixed(1)} miles`
     }));
 
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Create a driving itinerary to ${destination}.
+      prompt: `You are a professional navigator. Create a concise, human-readable driving summary to ${destination}.
 
       Rules:
-      1. Start: Analyze "${startAddress}" to find the City or Town. Start the response with "From [City], take...". Do not include specific house addresses.
-      2. Language: Use the provided "instruction" data to guide the user. YOU MUST use specific turn commands like "Turn left," "Turn right," "Merge," or "Take the exit."
-      3. Pruning: Ignore short residential street turns. Focus only on major road transitions provided in the data.
-      4. Format: A single, flowing paragraph. DO NOT use numbered lists.
+      1. Start: Begin with "From [City], take..." (Use "${startAddress}" to identify the city).
+      2. Format: Output a single, flowing paragraph. DO NOT use lists, DO NOT use numbers.
+      3. Content: Describe the route as a sequence of road transitions using the provided road names and distances.
+      4. Constraint: DO NOT invent maneuvers like "turn left" or "take the exit" if they are not in the data. Only describe the road name changes.
       5. Length: Max 75 words.
       
-      Route Data: ${JSON.stringify(simplifiedSteps)}`,
+      Route Data: ${JSON.stringify(cleanData)}`,
     });
 
     return res.status(200).json({ generated_text: text });
