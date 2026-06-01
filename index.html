@@ -122,8 +122,8 @@
                 });
                 const data = await routeRes.json();
 
-                // 3. Validation
-                if (data.error || !data.routes || data.routes.length === 0) {
+                // 3. Validation for GeoJSON
+                if (data.error || !data.features || data.features.length === 0) {
                     document.getElementById('route-info').innerHTML = `
                         <div style="color: #d32f2f; margin-top:10px;">
                             <strong>⚠️ Routing Unavailable:</strong><br>
@@ -132,11 +132,11 @@
                     return;
                 }
 
-                // 4. Success Path (OpenRouteService response structure)
+                // 4. Success Path (ORS GeoJSON structure)
                 currentRouteData = data;
-                const route = data.routes[0];
-                const miles = (route.summary.distance / 1609.34).toFixed(1);
-                const mins = Math.round(route.summary.duration / 60);
+                const feature = data.features[0];
+                const miles = (feature.properties.summary.distance / 1609.34).toFixed(1);
+                const mins = Math.round(feature.properties.summary.duration / 60);
                 
                 document.getElementById('route-info').innerHTML = `Time: ${mins} min | Dist: ${miles} miles <button id="ai-btn">Get AI Narrative</button>`;
 
@@ -151,7 +151,7 @@
                     document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${result.generated_text || "Narrative generation failed."}</p>`;
                 };
                 
-                renderRoute(route.geometry);
+                renderRoute(feature.geometry);
             } catch (e) { 
                 alert("Could not calculate route: " + e.message); 
             }
@@ -159,8 +159,6 @@
     }
 
     function renderRoute(geometry) {
-        // ORS returns geometry as an object with a coordinates array, 
-        // which MapLibre/Turf handles perfectly when passed as GeoJSON.
         if (map.getSource('route')) {
             map.getSource('route').setData(geometry);
         } else {

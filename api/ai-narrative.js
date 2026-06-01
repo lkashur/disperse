@@ -1,11 +1,8 @@
 import { createHuggingFace } from '@ai-sdk/huggingface';
 import { generateText } from 'ai';
 
-const hf = createHuggingFace({
-  apiKey: process.env.HF_TOKEN,
-});
+const hf = createHuggingFace({ apiKey: process.env.HF_TOKEN });
 
-// Helper to extract the City from "Street, City, State Zip"
 function extractCity(address) {
   if (!address) return "your starting location";
   const parts = address.split(',');
@@ -15,26 +12,23 @@ function extractCity(address) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Note: 'osrmData' variable name remains for consistency, 
-  // but it now contains OpenRouteService response data
+  // osrmData now contains the GeoJSON FeatureCollection
   const { osrmData, destination, startAddress } = req.body;
-  const route = osrmData?.routes?.[0];
+  const feature = osrmData?.features?.[0]; // ORS GeoJSON structure
 
-  if (!route) return res.status(400).json({ error: "Route data not found." });
+  if (!feature) return res.status(400).json({ error: "Route data not found." });
 
-  // 1. Identify unique Major Corridors (> 15 miles / ~24140 meters)
-  // ORS uses 'segments' instead of 'legs'
-  const allSteps = route.segments[0].steps;
+  // ORS stores segments/steps in properties
+  const allSteps = feature.properties.segments[0].steps;
   const majorHighways = [...new Set(
     allSteps
       .filter(step => step.distance > 24140 && step.name && step.name.length > 3)
       .map(step => step.name)
   )];
 
-  // 2. Prepare data for the prompt
   const city = extractCity(startAddress);
-  // ORS stores distance in route.summary.distance
-  const totalMiles = (route.summary.distance / 1609.34).toFixed(0);
+  // ORS stores summary in properties
+  const totalMiles = (feature.properties.summary.distance / 1609.34).toFixed(0);
   const firstRoad = majorHighways[0] || "the main route";
 
   try {
