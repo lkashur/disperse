@@ -38,24 +38,43 @@
 </div>
 
 <script>
+    let mapTilerKey = null;
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    const KEY = 'zv7FEIO8sqVopXQmnmD3';
     let roadsVisible = false;
     let currentFile = null;
     let currentRouteData = null;
     let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
+    let map;
 
-    const map = new maplibregl.Map({
-        container: 'map',
-        style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${KEY}`,
-        center: [-98.6, 39.8],
-        zoom: 3
-    });
+    async function initApp() {
+        // Fetch config from your secure Vercel API
+        const config = await fetch('/api/get-config').then(r => r.json());
+        mapTilerKey = config.mapTilerKey;
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+        map = new maplibregl.Map({
+            container: 'map',
+            style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
+            center: [-98.6, 39.8],
+            zoom: 3
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+        // Add Listeners after Map Initialization
+        document.getElementById('base-selector').addEventListener('change', updateStyle);
+        document.getElementById('forest-select').addEventListener('change', handleForestSelect);
+        document.getElementById('toggle-roads').addEventListener('click', toggleRoads);
+        
+        map.on('click', 'road-core', handleRoadClick);
+        map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
+        map.on('idle', () => { if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads(); });
+    }
+
+    // --- Core Logic ---
 
     function syncRoads() {
         if (map.getLayer('road-casing')) map.removeLayer('road-casing');
@@ -70,11 +89,7 @@
         }
     }
 
-    map.on('idle', () => {
-        if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads();
-    });
-
-    map.on('click', 'road-core', async (e) => {
+    async function handleRoadClick(e) {
         const props = e.features[0].properties;
         const coords = e.lngLat;
 
@@ -91,7 +106,8 @@
             if (!fromText) return alert("Enter a starting location");
 
             try {
-                const geo = await fetch(`https://api.maptiler.com/geocoding/${encodeURIComponent(fromText)}.json?key=${KEY}`).then(r => r.json());
+                // Use Proxy Geocoding
+                const geo = await fetch(`/api/geocode?q=${encodeURIComponent(fromText)}`).then(r => r.json());
                 const from = geo.features[0].center;
                 const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${from[0]},${from[1]};${coords.lng},${coords.lat}?overview=full&geometries=geojson&steps=true`;
                 const data = await fetch(osrmUrl).then(r => r.json());
@@ -105,33 +121,20 @@
                 
                 document.getElementById('route-info').innerHTML = `Time: ${mins} min | Dist: ${miles} miles <button id="ai-btn">Get AI Narrative</button>`;
 
-		document.getElementById('ai-btn').onclick = async () => {
-		    document.getElementById('ai-btn').innerText = "Generating...";
-		    const osrmData = currentRouteData;
-            const startAddress = document.getElementById('from-location').value;
-
-		    const res = await fetch('/api/ai-narrative', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-			    osrmData: osrmData,
-			    destination: props.NAME,
-                startAddress: startAddress
-			})
-		    });
-
-		    const result = await res.json();
-    
-		    // The SDK returns the text cleanly as a property
-		    const narrative = result.generated_text || "Narrative generation failed.";
-		    
-		    document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${narrative}</p>`;
-		};
-
+                document.getElementById('ai-btn').onclick = async () => {
+                    document.getElementById('ai-btn').innerText = "Generating...";
+                    const res = await fetch('/api/ai-narrative', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ osrmData: currentRouteData, destination: props.NAME, startAddress: fromText })
+                    });
+                    const result = await res.json();
+                    document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${result.generated_text || "Narrative generation failed."}</p>`;
+                };
                 renderRoute(route.geometry);
             } catch (e) { alert("Could not calculate route."); }
         };
-    });
+    }
 
     function renderRoute(geometry) {
         if (map.getSource('route')) {
@@ -147,36 +150,27 @@
         }
     }
 
-    document.getElementById('base-selector').addEventListener('change', (e) => {
+    function updateStyle(e) {
         popup.remove();
         const routeData = map.getSource('route') ? map.getSource('route')._data : null;
-        map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${KEY}`);
-        const restoreOnIdle = () => {
-            if (map.isStyleLoaded()) {
-                if (routeData) renderRoute(routeData);
-                map.off('idle', restoreOnIdle);
-            }
-        };
-        map.on('idle', restoreOnIdle);
-    });
+        map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${mapTilerKey}`);
+        map.once('idle', () => { if (routeData) renderRoute(routeData); });
+    }
 
-    map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
-
-    document.getElementById('forest-select').addEventListener('change', (e) => {
+    function handleForestSelect(e) {
         const data = JSON.parse(e.target.value);
         currentFile = e.target.selectedOptions[0].dataset.file;
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         popup.remove();
         syncRoads();
-    });
+    }
 
-    document.getElementById('toggle-roads').addEventListener('click', () => {
+    function toggleRoads() {
         if (!currentFile) return alert("Select a forest first");
         roadsVisible = !roadsVisible;
         if (!roadsVisible) popup.remove();
         syncRoads();
-    });
+    }
 
     fetch('forests.json').then(r => r.json()).then(data => {
         const select = document.getElementById('forest-select');
@@ -186,6 +180,8 @@
             select.appendChild(opt);
         });
     });
+
+    initApp();
 </script>
 </body>
 </html>
