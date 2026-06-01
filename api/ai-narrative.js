@@ -9,20 +9,22 @@ const hf = createHuggingFace({
 function extractCity(address) {
   if (!address) return "your starting location";
   const parts = address.split(',');
-  // Usually index 1 is the city in "Street, City, State Zip"
   return parts.length > 1 ? parts[1].trim() : address;
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
+  // Note: 'osrmData' variable name remains for consistency, 
+  // but it now contains OpenRouteService response data
   const { osrmData, destination, startAddress } = req.body;
   const route = osrmData?.routes?.[0];
 
   if (!route) return res.status(400).json({ error: "Route data not found." });
 
-  // 1. Identify unique Major Corridors (> 15 miles)
-  const allSteps = route.legs[0].steps;
+  // 1. Identify unique Major Corridors (> 15 miles / ~24140 meters)
+  // ORS uses 'segments' instead of 'legs'
+  const allSteps = route.segments[0].steps;
   const majorHighways = [...new Set(
     allSteps
       .filter(step => step.distance > 24140 && step.name && step.name.length > 3)
@@ -31,7 +33,8 @@ export default async function handler(req, res) {
 
   // 2. Prepare data for the prompt
   const city = extractCity(startAddress);
-  const totalMiles = (route.distance / 1609.34).toFixed(0);
+  // ORS stores distance in route.summary.distance
+  const totalMiles = (route.summary.distance / 1609.34).toFixed(0);
   const firstRoad = majorHighways[0] || "the main route";
 
   try {

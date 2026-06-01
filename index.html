@@ -106,18 +106,37 @@
             if (!fromText) return alert("Enter a starting location");
 
             try {
-                // Use Proxy Geocoding
+                // 1. Geocode via Proxy
                 const geo = await fetch(`/api/geocode?q=${encodeURIComponent(fromText)}`).then(r => r.json());
-                const from = geo.features[0].center;
-                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${from[0]},${from[1]};${coords.lng},${coords.lat}?overview=full&geometries=geojson&steps=true`;
-                const data = await fetch(osrmUrl).then(r => r.json());
+                if (!geo.features || geo.features.length === 0) throw new Error("Location not found");
+                const fromCoords = geo.features[0].center; // [lng, lat]
 
-                if (data.code !== 'Ok') throw new Error();
+                // 2. Request Route from your NEW Proxy
+                const routeRes = await fetch('/api/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        start: fromCoords, 
+                        end: [coords.lng, coords.lat] 
+                    })
+                });
+                const data = await routeRes.json();
 
+                // 3. Validation
+                if (data.error || !data.routes || data.routes.length === 0) {
+                    document.getElementById('route-info').innerHTML = `
+                        <div style="color: #d32f2f; margin-top:10px;">
+                            <strong>⚠️ Routing Unavailable:</strong><br>
+                            The selected forest road is not recognized in the routing database.
+                        </div>`;
+                    return;
+                }
+
+                // 4. Success Path (OpenRouteService response structure)
                 currentRouteData = data;
                 const route = data.routes[0];
-                const miles = (route.distance / 1609.34).toFixed(1);
-                const mins = Math.round(route.duration / 60);
+                const miles = (route.summary.distance / 1609.34).toFixed(1);
+                const mins = Math.round(route.summary.duration / 60);
                 
                 document.getElementById('route-info').innerHTML = `Time: ${mins} min | Dist: ${miles} miles <button id="ai-btn">Get AI Narrative</button>`;
 
@@ -131,12 +150,17 @@
                     const result = await res.json();
                     document.getElementById('route-info').innerHTML += `<p style="font-size: 13px; color: #333; margin-top:10px;">${result.generated_text || "Narrative generation failed."}</p>`;
                 };
+                
                 renderRoute(route.geometry);
-            } catch (e) { alert("Could not calculate route."); }
+            } catch (e) { 
+                alert("Could not calculate route: " + e.message); 
+            }
         };
     }
 
     function renderRoute(geometry) {
+        // ORS returns geometry as an object with a coordinates array, 
+        // which MapLibre/Turf handles perfectly when passed as GeoJSON.
         if (map.getSource('route')) {
             map.getSource('route').setData(geometry);
         } else {
