@@ -62,7 +62,12 @@
             if (isNameValid && !step.instruction.includes(step.name)) {
                 displayLabel = `${step.instruction} (${step.name})`;
             }
-            return { ...step, displayLabel, miles: (step.distance / 1609.34).toFixed(1), wayPoints: step.way_points };
+            return { 
+                ...step, 
+                displayLabel, 
+                miles: (step.distance / 1609.34).toFixed(1),
+                wayPoints: step.way_points 
+            };
         });
     }
 
@@ -78,6 +83,15 @@
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+        // Initialize Highlight Layer
+        map.on('load', () => {
+            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
+            map.addLayer({
+                id: 'highlight-route', type: 'line', source: 'highlight-route',
+                paint: { 'line-color': '#ffeb3b', 'line-width': 8, 'line-opacity': 0.8 }
+            });
+        });
 
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
@@ -97,7 +111,7 @@
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
-            // Ensure route stays on top
+            // Keep layers in order
             if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
         }
     }
@@ -136,6 +150,7 @@
                     </div>
                 `;
                 
+                // Add click listeners to list
                 document.querySelectorAll('.dir-item').forEach(item => {
                     item.onclick = (e) => {
                         e.stopPropagation(); // Keep popup open
@@ -145,7 +160,7 @@
                         // Update Highlight
                         map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
                         
-                        // Zoom
+                        // Zoom to Segment
                         const bbox = turf.bbox({type: 'LineString', coordinates: segmentCoords});
                         map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
                     };
@@ -156,20 +171,15 @@
     }
 
     function renderRoute(geometry) {
-        // Handle Base Route
         if (map.getSource('route')) {
             map.getSource('route').setData(geometry);
         } else {
             map.addSource('route', { type: 'geojson', data: geometry });
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
-        }
-
-        // Handle Highlight Layer (Always ensure it exists and is on top)
-        if (!map.getSource('highlight-route')) {
-            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
             map.addLayer({
-                id: 'highlight-route', type: 'line', source: 'highlight-route',
-                paint: { 'line-color': '#ffffff', 'line-width': 10, 'line-opacity': 1.0 }
+                id: 'route-arrows', type: 'symbol', source: 'route',
+                layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false },
+                paint: { 'text-color': '#1976d2' }
             });
         }
     }
