@@ -50,7 +50,8 @@
     let roadsVisible = false;
     let currentFile = null;
     let fullRouteGeometry = null;
-    let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
+    // Updated: closeButton: true adds the exit symbol, closeOnClick: false prevents map clicks from closing it
+    let popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false });
     let map;
 
     // --- LOGIC: DATA PROCESSING ---
