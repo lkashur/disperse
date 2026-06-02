@@ -67,7 +67,7 @@
             <strong>How to use:</strong><br>
             1. Select a forest to view map.<br>
             2. Choose a display style.<br>
-            3. Toggle MVUM roads to see trails.
+            3. Toggle MVUM roads or boundary shade.
         </div>
         
         <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
@@ -77,6 +77,7 @@
             <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
         </select>
         <button id="toggle-roads">Toggle MVUM Roads</button>
+        <button id="toggle-boundary">Toggle Forest Boundary</button>
     </div>
     
     <div id="map-wrapper">
@@ -94,6 +95,7 @@
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
     let roadsVisible = false;
+    let boundaryVisible = false; 
     let currentRoadFile = null;
     let currentBoundaryFile = null;
     let fullRouteGeometry = null;
@@ -135,6 +137,7 @@
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
         document.getElementById('toggle-roads').addEventListener('click', toggleRoads);
+        document.getElementById('toggle-boundary').addEventListener('click', toggleBoundary);
         
         map.on('click', 'road-core', handleRoadClick);
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
@@ -179,27 +182,15 @@
     }
 
     function syncBoundary() {
-        if (map.getLayer('boundary-layer')) map.removeLayer('boundary-layer');
+        // Clean up previous boundary layers
+        if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
         
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
             
-            // Magenta Outline
-            map.addLayer({
-                "id": "boundary-layer",
-                "type": "line",
-                "source": "boundary-source",
-                "source-layer": "forest_boundary",
-                "paint": { 
-                    "line-color": "#FF00FF",
-                    "line-width": 1,
-                    "line-dasharray": [0.5, 0.25]
-                }
-            });
-
-            // Forest Name Label
+            // 1. Forest Name Label (Always added)
             map.addLayer({
                 "id": "boundary-label",
                 "type": "symbol",
@@ -210,18 +201,28 @@
                     "text-field": ["get", "FORESTNAME"],
                     "text-size": 14,
                     "text-font": ["Open Sans Bold"],
-                    "text-allow-overlap": false,
-                    "symbol-placement": "line",
-                    "text-rotation-alignment": "map",
-                    "text-pitch-alignment": "map",
-                    "symbol-spacing": 500
+                    "text-allow-overlap": false
                 },
                 "paint": {
-                    "text-color": "#FF00FF",
+                    "text-color": "#333",
                     "text-halo-color": "#ffffff",
                     "text-halo-width": 2
                 }
             });
+
+            // 2. Shaded Boundary (Only added if toggled on)
+            if (boundaryVisible) {
+                map.addLayer({
+                    "id": "boundary-fill",
+                    "type": "fill",
+                    "source": "boundary-source",
+                    "source-layer": "forest_boundary",
+                    "paint": { 
+                        "fill-color": "#2e7d32",
+                        "fill-opacity": 0.3
+                    }
+                });
+            }
         }
     }
 
@@ -315,7 +316,7 @@
             ensureHighlightLayer();
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
-            syncBoundary();
+            syncBoundary(); // Re-syncs boundary with current persistence state
             
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
@@ -329,7 +330,7 @@
         const opt = e.target.selectedOptions[0];
         
         currentRoadFile = opt.dataset.roadFile;
-        currentBoundaryFile = opt.dataset.boundaryFile;
+        currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
         
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         closeNav(); 
@@ -342,6 +343,12 @@
         roadsVisible = !roadsVisible;
         if (!roadsVisible) { closeNav(); } 
         syncRoads();
+    }
+
+    function toggleBoundary() {
+        if (!currentBoundaryFile || currentBoundaryFile === "undefined") return alert("Select a forest first");
+        boundaryVisible = !boundaryVisible;
+        syncBoundary();
     }
 
     fetch('forests.json').then(r => r.json()).then(data => {
