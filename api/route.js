@@ -1,13 +1,9 @@
 // api/route.js
 export default async function handler(req, res) {
-    // 1. Force the response header to always be JSON
     res.setHeader('Content-Type', 'application/json');
 
     try {
-        // Ensure we handle JSON body parsing correctly
         const { start, end } = req.body;
-        
-        // Use your specific key name: ORS_KEY
         const apiKey = process.env.ORS_KEY; 
 
         if (!apiKey) {

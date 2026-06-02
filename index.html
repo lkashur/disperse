@@ -52,27 +52,27 @@
     let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
     let map;
 
-    // --- LOGIC: DATA PROCESSING ---
-    function extractHighwayName(instruction) {
-        const match = instruction.match(/(US|CA|I-|Hwy)\s?\d+/i);
-        return match ? match[0] : "the road";
-    }
-
+    // --- LOGIC: DATA PROCESSING (Stable Instruction-First Approach) ---
     function processDirections(steps) {
-        if (!steps) return [];
-        return steps.reduce((acc, step) => {
-            const currentName = (step.name && step.name !== "-") 
-                ? step.name 
-                : extractHighwayName(step.instruction);
-            const last = acc[acc.length - 1];
+        if (!steps || !Array.isArray(steps)) return [];
 
-            if (last && last.name === currentName) {
-                last.distance += step.distance;
-            } else {
-                acc.push({ ...step, name: currentName });
+        return steps.map((step) => {
+            const isNameValid = step.name && 
+                                step.name !== "-" && 
+                                step.name.toLowerCase() !== "the road";
+
+            let displayLabel = step.instruction;
+            
+            if (isNameValid && !step.instruction.includes(step.name)) {
+                displayLabel = `${step.instruction} (${step.name})`;
             }
-            return acc;
-        }, []);
+
+            return {
+                ...step,
+                displayLabel: displayLabel,
+                miles: (step.distance / 1609.34).toFixed(1)
+            };
+        });
     }
 
     async function initApp() {
@@ -148,7 +148,7 @@
                 const miles = (feature.properties.summary.distance / 1609.34).toFixed(1);
                 const mins = Math.round(feature.properties.summary.duration / 60);
                 
-                // Process Directions Locally
+                // Process Directions using the new Instruction-First logic
                 const steps = feature.properties.segments[0].steps;
                 const cleaned = processDirections(steps);
 
@@ -156,7 +156,7 @@
                 document.getElementById('route-info').innerHTML = `
                     ${mins} min | ${miles} miles
                     <div class="directions-list">
-                        ${cleaned.map(s => `<div class="dir-item"><strong>${s.name}</strong> (${(s.distance/1609.34).toFixed(1)} mi)</div>`).join('')}
+                        ${cleaned.map(s => `<div class="dir-item"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
                     </div>
                 `;
                 
