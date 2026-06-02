@@ -21,7 +21,8 @@
         
         /* New Styles for Directions List */
         .directions-list { margin-top: 10px; font-size: 12px; max-height: 200px; overflow-y: auto; border-top: 1px solid #ccc; padding-top: 5px; }
-        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #ccc; padding-bottom: 3px; }
+        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #ccc; padding-bottom: 3px; cursor: pointer; }
+        .dir-item:hover { background: #e3f2fd; }
     </style>
 </head>
 <body>
@@ -48,7 +49,7 @@
 
     let roadsVisible = false;
     let currentFile = null;
-    let currentRouteData = null;
+    let fullRouteGeometry = null;
     let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
     let map;
 
@@ -70,7 +71,8 @@
             return {
                 ...step,
                 displayLabel: displayLabel,
-                miles: (step.distance / 1609.34).toFixed(1)
+                miles: (step.distance / 1609.34).toFixed(1),
+                wayPoints: step.way_points
             };
         });
     }
@@ -88,6 +90,15 @@
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+        // Add highlight layer on load
+        map.on('load', () => {
+            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
+            map.addLayer({
+                id: 'highlight-route', type: 'line', source: 'highlight-route',
+                paint: { 'line-color': '#ffeb3b', 'line-width': 8, 'line-opacity': 0.9 }
+            });
+        });
 
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
@@ -144,23 +155,33 @@
                     return;
                 }
 
-                const feature = data.features[0];
-                const miles = (feature.properties.summary.distance / 1609.34).toFixed(1);
-                const mins = Math.round(feature.properties.summary.duration / 60);
-                
-                // Process Directions using the new Instruction-First logic
-                const steps = feature.properties.segments[0].steps;
+                // Store geometry
+                fullRouteGeometry = data.features[0].geometry;
+                const steps = data.features[0].properties.segments[0].steps;
                 const cleaned = processDirections(steps);
 
                 // Render Summary + List
                 document.getElementById('route-info').innerHTML = `
-                    ${mins} min | ${miles} miles
+                    ${Math.round(data.features[0].properties.summary.duration / 60)} min | ${(data.features[0].properties.summary.distance / 1609.34).toFixed(1)} miles
                     <div class="directions-list">
-                        ${cleaned.map(s => `<div class="dir-item"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
+                        ${cleaned.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
                     </div>
                 `;
                 
-                renderRoute(feature.geometry);
+                // Add click listeners
+                document.querySelectorAll('.dir-item').forEach(item => {
+                    item.onclick = () => {
+                        const step = cleaned[item.dataset.index];
+                        const segmentCoords = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
+                        map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
+                        
+                        const bounds = new maplibregl.LngLatBounds(segmentCoords[0], segmentCoords[0]);
+                        segmentCoords.forEach(c => bounds.extend(c));
+                        map.fitBounds(bounds, { padding: 50 });
+                    };
+                });
+
+                renderRoute(fullRouteGeometry);
             } catch (e) { alert("Could not calculate route: " + e.message); }
         };
     }
