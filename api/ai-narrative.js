@@ -11,47 +11,44 @@ export default async function handler(req, res) {
 
   if (!feature) return res.status(400).json({ error: "Route data not found." });
 
-  // 1. Process steps to filter out the 'chatter' (Keep left/right, continue straight)
-  // We only keep the major transitions (changes in road name)
   const rawSteps = feature.properties.segments[0].steps;
-  const majorTransitions = [];
-  let currentRoad = "";
 
-  rawSteps.forEach(step => {
-    // Only capture segments with a name that is different from the previous one
-    // This effectively merges "Keep left" and "Turn right" into the road change itself
-    if (step.name && step.name !== currentRoad && !step.name.includes("roundabout")) {
-      majorTransitions.push({ road: step.name });
-      currentRoad = step.name;
-    }
+  // 1. SEMANTIC COMPRESSION: Group the journey into "Legs"
+  // Categorize based on road type, not just name changes
+  const routeLegs = rawSteps.map(step => {
+    const isHighway = /I-\d+|CA-|US-|Freeway|Hwy/i.test(step.name);
+    return {
+      name: step.name,
+      type: isHighway ? "HIGHWAY" : "LOCAL",
+      distance: (step.distance / 1609.34).toFixed(1)
+    };
   });
 
-  // 2. Clean up destination name (handle technical IDs)
-  let safeDestination = destination;
-  if (!safeDestination || safeDestination === 'null' || safeDestination.length < 3 || /^\d+$/.test(safeDestination)) {
-    safeDestination = "your selected forest location";
-  }
+  // Filter: Keep only Highway changes and the Final Approach
+  const simplifiedRoute = routeLegs.filter((leg, i) => {
+    const isFinal = i === routeLegs.length - 1;
+    const isHighwayChange = leg.type === "HIGHWAY" && (i === 0 || routeLegs[i-1].type !== "HIGHWAY");
+    return isHighwayChange || isFinal;
+  });
 
   const totalMiles = (feature.properties.summary.distance / 1609.34).toFixed(0);
 
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Provide a concise, objective summary of the route.
+      prompt: `You are a navigation expert. Summarize the route into a professional, concise travel summary.
 
       DATA:
-      - Origin: ${startAddress}
-      - Destination: ${safeDestination}
-      - Total Distance: ${totalMiles} miles
-      - Route Sequence: ${JSON.stringify(majorTransitions)}
+      - Departure: ${startAddress}
+      - Destination: ${destination}
+      - Route Overview: ${JSON.stringify(simplifiedRoute)}
 
       INSTRUCTIONS:
-      1. FORMAT: Write a single, fluid narrative paragraph.
-      2. PROHIBITED: Do NOT use numbered lists, bullet points, or "step-by-step" formatting.
-      3. TONE: Strictly professional and objective.
-      4. CONTENT: Use the Route Sequence to describe the journey. Combine segments into a cohesive narrative (e.g., "From Santa Barbara, merge onto [Road] and continue until you transition to [Road]...").
-      5. ENDING: Conclude with: "...to arrive at ${safeDestination}."
-      6. LENGTH: Keep it brief (under 60 words).`,
+      1. STYLE: Write one cohesive paragraph.
+      2. FOCUS: Describe the journey by major highways first.
+      3. TRANSITION: Use a brief sentence for the final approach using the last item in the Route Overview.
+      4. CONSTRAINTS: Do not list every road. Do not use bullet points. No conversational filler.
+      5. ENDING: Conclude with: "...to arrive at ${destination}."`,
     });
 
     return res.status(200).json({ generated_text: text });
