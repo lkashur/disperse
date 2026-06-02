@@ -53,27 +53,16 @@
     let popup = new maplibregl.Popup({ closeButton: false, closeOnClick: true });
     let map;
 
-    // --- LOGIC: DATA PROCESSING (Stable Instruction-First Approach) ---
+    // --- LOGIC: DATA PROCESSING ---
     function processDirections(steps) {
         if (!steps || !Array.isArray(steps)) return [];
-
         return steps.map((step) => {
-            const isNameValid = step.name && 
-                                step.name !== "-" && 
-                                step.name.toLowerCase() !== "the road";
-
+            const isNameValid = step.name && step.name !== "-" && step.name.toLowerCase() !== "the road";
             let displayLabel = step.instruction;
-            
             if (isNameValid && !step.instruction.includes(step.name)) {
                 displayLabel = `${step.instruction} (${step.name})`;
             }
-
-            return {
-                ...step,
-                displayLabel: displayLabel,
-                miles: (step.distance / 1609.34).toFixed(1),
-                wayPoints: step.way_points
-            };
+            return { ...step, displayLabel, miles: (step.distance / 1609.34).toFixed(1), wayPoints: step.way_points };
         });
     }
 
@@ -84,21 +73,11 @@
         map = new maplibregl.Map({
             container: 'map',
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
-            center: [-98.6, 39.8],
-            zoom: 3
+            center: [-98.6, 39.8], zoom: 3
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
-
-        // Add highlight layer on load
-        map.on('load', () => {
-            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
-            map.addLayer({
-                id: 'highlight-route', type: 'line', source: 'highlight-route',
-                paint: { 'line-color': '#ffffff', 'line-width': 10, 'line-opacity': 0.9 }
-            });
-        });
 
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
@@ -118,6 +97,7 @@
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
+            // Ensure route stays on top
             if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
         }
     }
@@ -125,7 +105,6 @@
     async function handleRoadClick(e) {
         const props = e.features[0].properties;
         const coords = e.lngLat;
-
         popup.setLngLat(coords).setHTML(`
             <strong>Name:</strong> ${props.NAME || 'N/A'}<br>
             <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
@@ -137,12 +116,9 @@
         document.getElementById('btn-get-route').onclick = async () => {
             const fromText = document.getElementById('from-location').value;
             if (!fromText) return alert("Enter a starting location");
-
             try {
                 const geo = await fetch(`/api/geocode?q=${encodeURIComponent(fromText)}`).then(r => r.json());
-                if (!geo.features || geo.features.length === 0) throw new Error("Location not found");
                 const fromCoords = geo.features[0].center; 
-
                 const routeRes = await fetch('/api/route', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -150,14 +126,8 @@
                 });
                 const data = await routeRes.json();
 
-                if (data.error || !data.features || data.features.length === 0) {
-                    document.getElementById('route-info').innerHTML = `<div style="color: #d32f2f; margin-top:10px;">Routing Unavailable</div>`;
-                    return;
-                }
-
                 fullRouteGeometry = data.features[0].geometry;
-                const steps = data.features[0].properties.segments[0].steps;
-                const cleaned = processDirections(steps);
+                const cleaned = processDirections(data.features[0].properties.segments[0].steps);
 
                 document.getElementById('route-info').innerHTML = `
                     ${Math.round(data.features[0].properties.summary.duration / 60)} min | ${(data.features[0].properties.summary.distance / 1609.34).toFixed(1)} miles
@@ -168,41 +138,49 @@
                 
                 document.querySelectorAll('.dir-item').forEach(item => {
                     item.onclick = (e) => {
-                        e.stopPropagation(); // Prevents popup from closing
+                        e.stopPropagation(); // Keep popup open
                         const step = cleaned[item.dataset.index];
                         const segmentCoords = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
+                        
+                        // Update Highlight
                         map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
                         
-                        const bounds = new maplibregl.LngLatBounds(segmentCoords[0], segmentCoords[0]);
-                        segmentCoords.forEach(c => bounds.extend(c));
-                        map.fitBounds(bounds, { padding: 50 });
+                        // Zoom
+                        const bbox = turf.bbox({type: 'LineString', coordinates: segmentCoords});
+                        map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
                     };
                 });
-
                 renderRoute(fullRouteGeometry);
-            } catch (e) { alert("Could not calculate route: " + e.message); }
+            } catch (e) { alert("Could not calculate route"); }
         };
     }
 
     function renderRoute(geometry) {
+        // Handle Base Route
         if (map.getSource('route')) {
             map.getSource('route').setData(geometry);
         } else {
             map.addSource('route', { type: 'geojson', data: geometry });
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
+        }
+
+        // Handle Highlight Layer (Always ensure it exists and is on top)
+        if (!map.getSource('highlight-route')) {
+            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
             map.addLayer({
-                id: 'route-arrows', type: 'symbol', source: 'route',
-                layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false },
-                paint: { 'text-color': '#1976d2' }
+                id: 'highlight-route', type: 'line', source: 'highlight-route',
+                paint: { 'line-color': '#ffffff', 'line-width': 10, 'line-opacity': 1.0 }
             });
         }
     }
 
     function updateStyle(e) {
         popup.remove();
-        const routeData = map.getSource('route') ? map.getSource('route')._data : null;
         map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${mapTilerKey}`);
-        map.once('idle', () => { if (routeData) renderRoute(routeData); });
+        map.once('idle', () => { 
+            if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
+            if (roadsVisible) syncRoads();
+        });
     }
 
     function handleForestSelect(e) {
