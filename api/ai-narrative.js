@@ -11,49 +11,32 @@ export default async function handler(req, res) {
 
   if (!feature) return res.status(400).json({ error: "Route data not found." });
 
-  // 1. DATA PARSING: Filter for Major Highways and the Final Approach
-  const rawSteps = feature.properties.segments[0].steps;
-  const majorTransitions = [];
-  let currentRoad = "";
-  
-  // Logic: Only keep Highways or the very last step
-  const isMajorRoad = (name) => /I-\d+|CA-|US-|Freeway|Hwy|Expressway|State Route|Highway/i.test(name);
-
-  rawSteps.forEach((step, index) => {
-    if (!step.name) return;
-    const isLastStep = index === rawSteps.length - 1;
-    const isNewRoad = step.name !== currentRoad;
-    
-    if (isNewRoad && (isMajorRoad(step.name) || isLastStep)) {
-      majorTransitions.push({ road: step.name });
-      currentRoad = step.name;
-    }
-  });
-
-  // 2. NAME CLEANUP: Sanity check for forest road IDs
-  let safeDestination = destination;
-  if (!safeDestination || /^\d+$/.test(safeDestination) || safeDestination === 'null') {
-    safeDestination = "your forest destination";
-  }
+  // 1. DATA EXTRACTION: Get the raw instructions. 
+  // We don't filter them out here, we let the AI handle the consolidation.
+  const steps = feature.properties.segments[0].steps.map(s => ({
+    instruction: s.instruction,
+    distance: (s.distance / 1609.34).toFixed(1) + " miles"
+  }));
 
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a helpful local friend giving directions.
+      prompt: `You are a professional navigation assistant.
       
-      DATA:
+      INPUT:
       - Origin: ${startAddress}
-      - Destination: ${safeDestination}
-      - Major Route Changes: ${JSON.stringify(majorTransitions)}
+      - Destination: ${destination}
+      - Steps: ${JSON.stringify(steps)}
 
-      INSTRUCTIONS:
-      1. PERSONA: You are a local driver. Use conversational, natural language.
-      2. NAMING: Use local naming conventions (e.g., call "I-5" "The 5", "US-101" "The 101").
-      3. SENSE: If a road name is purely technical (like a forest service number), refer to it naturally as "the turn-off" or "the forest road".
-      4. STYLE: Do not use numbered lists. Keep it to 3-4 natural sentences. 
-      5. EXAMPLES: "From Santa Barbara, hop on The 118 and take it over to The 5. Follow that until you catch The 14 heading out toward the desert, then look for the turn-off onto the local forest roads to arrive at your destination."
-      6. ENDING: Conclude with: "...to arrive at ${safeDestination}."
-      7. TONE: No fluff, no "journey" talk, just helpful, brief directions.`,
+      TASK:
+      Combine the provided steps into a clear, reliable, professional turn-by-turn guide.
+      
+      RULES:
+      1. ACCURACY IS PARAMOUNT: Do not skip turns or exits.
+      2. CONSOLIDATE: If there are multiple "Keep Left/Right" or "Continue Straight" steps in a row on the same road, merge them into one instruction (e.g., "Continue on I-5 for 50 miles").
+      3. FORMAT: Use a clean, numbered list.
+      4. NO NARRATIVE: Do not use "journey," "traversing," or "hop on." Just provide the instruction.
+      5. ENDING: End with: "Arrive at ${destination}."`,
     });
 
     return res.status(200).json({ generated_text: text });
