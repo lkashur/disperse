@@ -23,7 +23,7 @@
             position: relative; 
         }
         
-        /* Updated Persistent Panel: Lighter grey transparency */
+        /* Persistent Panel: Lighter grey transparency */
         #nav-panel { 
             width: 300px; 
             height: 100%; 
@@ -156,7 +156,11 @@
             map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
             map.addLayer({
                 id: 'highlight-route', type: 'line', source: 'highlight-route',
-                paint: { 'line-color': '#ffeb3b', 'line-width': 8, 'line-opacity': 0.8 }
+                paint: { 
+                    'line-color': '#ff00ff', // High contrast magenta
+                    'line-width': 10,       // Thicker
+                    'line-opacity': 0.9     // More solid
+                }
             });
         }
     }
