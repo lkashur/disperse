@@ -11,44 +11,42 @@ export default async function handler(req, res) {
 
   if (!feature) return res.status(400).json({ error: "Route data not found." });
 
+  // Filter: Keep only major roads/highways
   const rawSteps = feature.properties.segments[0].steps;
+  const majorTransitions = [];
+  let currentRoad = "";
+  
+  const isMajorRoad = (name) => /I-\d+|CA-|US-|Freeway|Hwy|Expressway|State Route|Highway/i.test(name);
 
-  // 1. SEMANTIC COMPRESSION: Group the journey into "Legs"
-  // Categorize based on road type, not just name changes
-  const routeLegs = rawSteps.map(step => {
-    const isHighway = /I-\d+|CA-|US-|Freeway|Hwy/i.test(step.name);
-    return {
-      name: step.name,
-      type: isHighway ? "HIGHWAY" : "LOCAL",
-      distance: (step.distance / 1609.34).toFixed(1)
-    };
+  rawSteps.forEach((step, index) => {
+    if (!step.name) return;
+    const isLastStep = index === rawSteps.length - 1;
+    if (step.name !== currentRoad && (isMajorRoad(step.name) || isLastStep)) {
+      majorTransitions.push({ road: step.name, distance: (step.distance / 1609.34).toFixed(1) });
+      currentRoad = step.name;
+    }
   });
-
-  // Filter: Keep only Highway changes and the Final Approach
-  const simplifiedRoute = routeLegs.filter((leg, i) => {
-    const isFinal = i === routeLegs.length - 1;
-    const isHighwayChange = leg.type === "HIGHWAY" && (i === 0 || routeLegs[i-1].type !== "HIGHWAY");
-    return isHighwayChange || isFinal;
-  });
-
-  const totalMiles = (feature.properties.summary.distance / 1609.34).toFixed(0);
 
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a navigation expert. Summarize the route into a professional, concise travel summary.
+      prompt: `You are a GPS unit. Output ONLY instructions using the format below.
 
       DATA:
-      - Departure: ${startAddress}
-      - Destination: ${destination}
-      - Route Overview: ${JSON.stringify(simplifiedRoute)}
+      - Transitions: ${JSON.stringify(majorTransitions)}
+      - Arrival: ${destination}
 
-      INSTRUCTIONS:
-      1. STYLE: Write one cohesive paragraph.
-      2. FOCUS: Describe the journey by major highways first.
-      3. TRANSITION: Use a brief sentence for the final approach using the last item in the Route Overview.
-      4. CONSTRAINTS: Do not list every road. Do not use bullet points. No conversational filler.
-      5. ENDING: Conclude with: "...to arrive at ${destination}."`,
+      FORMAT:
+      Take [Road] for [Distance] miles. 
+      Merge onto [Road] for [Distance] miles.
+      Continue on [Road] for [Distance] miles.
+      Arrive at [Arrival].
+
+      RULES:
+      1. Use ONLY the data provided.
+      2. No introduction. No conclusion. No filler words.
+      3. No "narrative" flow.
+      4. If the instruction is just to arrive, use "Arrive at [Arrival]."`,
     });
 
     return res.status(200).json({ generated_text: text });
