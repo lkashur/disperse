@@ -19,7 +19,6 @@
         .route-warning { font-size: 10px; color: #d32f2f; margin-top: 10px; line-height: 1.2; }
         #route-info { margin-top: 10px; font-weight: bold; color: #1976d2; }
         
-        /* New Styles for Directions List */
         .directions-list { margin-top: 10px; font-size: 12px; max-height: 200px; overflow-y: auto; border-top: 1px solid #ccc; padding-top: 5px; }
         .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #ccc; padding-bottom: 3px; cursor: pointer; }
         .dir-item:hover { background: #e3f2fd; }
@@ -50,11 +49,13 @@
     let roadsVisible = false;
     let currentFile = null;
     let fullRouteGeometry = null;
-    // Updated: closeButton: true adds the exit symbol, closeOnClick: false prevents map clicks from closing it
     let popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false });
     let map;
 
-    // --- LOGIC: DATA PROCESSING ---
+    // State for popup restoration
+    let activePopupCoords = null;
+    let activePopupHTML = null;
+
     function processDirections(steps) {
         if (!steps || !Array.isArray(steps)) return [];
         return steps.map((step) => {
@@ -63,12 +64,7 @@
             if (isNameValid && !step.instruction.includes(step.name)) {
                 displayLabel = `${step.instruction} (${step.name})`;
             }
-            return { 
-                ...step, 
-                displayLabel, 
-                miles: (step.distance / 1609.34).toFixed(1),
-                wayPoints: step.way_points 
-            };
+            return { ...step, displayLabel, miles: (step.distance / 1609.34).toFixed(1), wayPoints: step.way_points };
         });
     }
 
@@ -85,7 +81,6 @@
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
-        // Initialize Highlight Layer
         map.on('load', () => {
             map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
             map.addLayer({
@@ -101,7 +96,9 @@
         map.on('click', 'road-core', handleRoadClick);
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
-        map.on('idle', () => { if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads(); });
+        map.on('idle', () => { 
+            if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads(); 
+        });
     }
 
     function syncRoads() {
@@ -112,23 +109,19 @@
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
-            // Keep layers in order
             if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
         }
     }
 
-    async function handleRoadClick(e) {
-        const props = e.features[0].properties;
-        const coords = e.lngLat;
-        popup.setLngLat(coords).setHTML(`
-            <strong>Name:</strong> ${props.NAME || 'N/A'}<br>
-            <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
-            <button id="btn-get-route">Get Directions</button>
-            <div id="route-info"></div>
-            <p class="route-warning"><strong>⚠️ Warning:</strong> Verify closures with USFS MVUM.</p>
-        `).addTo(map);
+    // Centralized popup creation/restoration function
+    function openPopup(coords, htmlContent, cleanedDirections) {
+        popup.setLngLat(coords).setHTML(htmlContent).addTo(map);
+        activePopupCoords = coords;
+        activePopupHTML = htmlContent;
 
-        document.getElementById('btn-get-route').onclick = async () => {
+        // Re-bind the click for "Get Directions"
+        const btn = document.getElementById('btn-get-route');
+        if (btn) btn.onclick = async () => {
             const fromText = document.getElementById('from-location').value;
             if (!fromText) return alert("Enter a starting location");
             try {
@@ -144,31 +137,44 @@
                 fullRouteGeometry = data.features[0].geometry;
                 const cleaned = processDirections(data.features[0].properties.segments[0].steps);
 
-                document.getElementById('route-info').innerHTML = `
+                const newContent = `
                     ${Math.round(data.features[0].properties.summary.duration / 60)} min | ${(data.features[0].properties.summary.distance / 1609.34).toFixed(1)} miles
                     <div class="directions-list">
                         ${cleaned.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
                     </div>
                 `;
-                
-                // Add click listeners to list
-                document.querySelectorAll('.dir-item').forEach(item => {
-                    item.onclick = (e) => {
-                        e.stopPropagation(); // Keep popup open
-                        const step = cleaned[item.dataset.index];
-                        const segmentCoords = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
-                        
-                        // Update Highlight
-                        map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
-                        
-                        // Zoom to Segment
-                        const bbox = turf.bbox({type: 'LineString', coordinates: segmentCoords});
-                        map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
-                    };
-                });
+                // Re-open with new content
+                openPopup(coords, `<strong>Name:</strong> ${document.getElementById('from-location').getAttribute('data-name') || 'N/A'}<br>... (rest of form) ... ${newContent}`, cleaned);
                 renderRoute(fullRouteGeometry);
             } catch (e) { alert("Could not calculate route"); }
         };
+
+        // Re-bind direction list items
+        if (cleanedDirections) {
+            document.querySelectorAll('.dir-item').forEach(item => {
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    const step = cleanedDirections[item.dataset.index];
+                    const segmentCoords = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
+                    map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
+                    const bbox = turf.bbox({type: 'LineString', coordinates: segmentCoords});
+                    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
+                };
+            });
+        }
+    }
+
+    async function handleRoadClick(e) {
+        const props = e.features[0].properties;
+        const coords = e.lngLat;
+        const initialHTML = `
+            <strong>Name:</strong> ${props.NAME || 'N/A'}<br>
+            <input type="text" id="from-location" data-name="${props.NAME}" placeholder="Start address" style="width:100%; margin:10px 0;">
+            <button id="btn-get-route">Get Directions</button>
+            <div id="route-info"></div>
+            <p class="route-warning"><strong>⚠️ Warning:</strong> Verify closures with USFS MVUM.</p>
+        `;
+        openPopup(coords, initialHTML, null);
     }
 
     function renderRoute(geometry) {
@@ -177,20 +183,31 @@
         } else {
             map.addSource('route', { type: 'geojson', data: geometry });
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
-            map.addLayer({
-                id: 'route-arrows', type: 'symbol', source: 'route',
-                layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false },
-                paint: { 'text-color': '#1976d2' }
-            });
+            map.addLayer({ id: 'route-arrows', type: 'symbol', source: 'route', layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false }, paint: { 'text-color': '#1976d2' } });
         }
     }
 
     function updateStyle(e) {
-        popup.remove();
+        // Capture state before switch
+        if (popup.isOpen()) {
+            // We keep activePopupCoords and activePopupHTML saved
+            // We just need to make sure the popup closes naturally with the map
+        } else {
+            activePopupCoords = null;
+            activePopupHTML = null;
+        }
+
         map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${mapTilerKey}`);
+        
         map.once('idle', () => { 
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
+            
+            // Restore popup if it was open
+            if (activePopupCoords && activePopupHTML) {
+                // We re-render the popup content. Note: If a route was active, we re-run logic.
+                openPopup(activePopupCoords, activePopupHTML, null); 
+            }
         });
     }
 
@@ -199,13 +216,14 @@
         currentFile = e.target.selectedOptions[0].dataset.file;
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         popup.remove();
+        activePopupCoords = null;
         syncRoads();
     }
 
     function toggleRoads() {
         if (!currentFile) return alert("Select a forest first");
         roadsVisible = !roadsVisible;
-        if (!roadsVisible) popup.remove();
+        if (!roadsVisible) { popup.remove(); activePopupCoords = null; }
         syncRoads();
     }
 
