@@ -96,7 +96,7 @@
             map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
             map.addLayer({
                 id: 'highlight-route', type: 'line', source: 'highlight-route',
-                paint: { 'line-color': '#ffeb3b', 'line-width': 8, 'line-opacity': 0.9 }
+                paint: { 'line-color': '#ffffff', 'line-width': 10, 'line-opacity': 0.9 }
             });
         });
 
@@ -155,12 +155,10 @@
                     return;
                 }
 
-                // Store geometry
                 fullRouteGeometry = data.features[0].geometry;
                 const steps = data.features[0].properties.segments[0].steps;
                 const cleaned = processDirections(steps);
 
-                // Render Summary + List
                 document.getElementById('route-info').innerHTML = `
                     ${Math.round(data.features[0].properties.summary.duration / 60)} min | ${(data.features[0].properties.summary.distance / 1609.34).toFixed(1)} miles
                     <div class="directions-list">
@@ -168,9 +166,9 @@
                     </div>
                 `;
                 
-                // Add click listeners
                 document.querySelectorAll('.dir-item').forEach(item => {
-                    item.onclick = () => {
+                    item.onclick = (e) => {
+                        e.stopPropagation(); // Prevents popup from closing
                         const step = cleaned[item.dataset.index];
                         const segmentCoords = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
                         map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
