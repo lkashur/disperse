@@ -23,7 +23,6 @@
             position: relative; 
         }
         
-        /* Persistent Panel: Lighter grey transparency */
         #nav-panel { 
             width: 300px; 
             height: 100%; 
@@ -42,24 +41,14 @@
             pointer-events: auto;
         }
         
-        #close-btn {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            cursor: pointer;
-            font-size: 20px;
-            font-weight: bold;
-            color: #333;
-        }
+        #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
         #close-btn:hover { color: #000; }
         
         #map { flex-grow: 1; height: 100%; }
         
         select, button { width: 100%; padding: 10px; cursor: pointer; }
         
-        /* Instructions Styling */
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
         
@@ -105,7 +94,8 @@
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
     let roadsVisible = false;
-    let currentFile = null;
+    let currentRoadFile = null;
+    let currentBoundaryFile = null;
     let fullRouteGeometry = null;
     let map;
 
@@ -149,7 +139,11 @@
         map.on('click', 'road-core', handleRoadClick);
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
-        map.on('idle', () => { if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads(); });
+        
+        map.on('idle', () => { 
+            if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); 
+            if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary();
+        });
     }
 
     function closeNav() {
@@ -167,11 +161,7 @@
             map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
             map.addLayer({
                 id: 'highlight-route', type: 'line', source: 'highlight-route',
-                paint: { 
-                    'line-color': '#ff00ff', 
-                    'line-width': 10,       
-                    'line-opacity': 0.9     
-                }
+                paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 }
             });
         }
     }
@@ -180,11 +170,27 @@
         if (map.getLayer('road-casing')) map.removeLayer('road-casing');
         if (map.getLayer('road-core')) map.removeLayer('road-core');
         if (map.getSource('roads')) map.removeSource('roads');
-        if (roadsVisible && currentFile && map.isStyleLoaded()) {
-            map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentFile}` });
+        if (roadsVisible && currentRoadFile && map.isStyleLoaded()) {
+            map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentRoadFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
             if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
+        }
+    }
+
+    function syncBoundary() {
+        if (map.getLayer('boundary-layer')) map.removeLayer('boundary-layer');
+        if (map.getSource('boundary-source')) map.removeSource('boundary-source');
+        
+        if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
+            map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
+            map.addLayer({
+                "id": "boundary-layer",
+                "type": "fill",
+                "source": "boundary-source",
+                "source-layer": "forest_boundary",
+                "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.2, "fill-outline-color": "#1b5e20" }
+            });
         }
     }
 
@@ -278,6 +284,7 @@
             ensureHighlightLayer();
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
+            syncBoundary();
             
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
@@ -288,14 +295,19 @@
 
     function handleForestSelect(e) {
         const data = JSON.parse(e.target.value);
-        currentFile = e.target.selectedOptions[0].dataset.file;
+        const opt = e.target.selectedOptions[0];
+        
+        currentRoadFile = opt.dataset.roadFile;
+        currentBoundaryFile = opt.dataset.boundaryFile;
+        
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         closeNav(); 
         syncRoads();
+        syncBoundary();
     }
 
     function toggleRoads() {
-        if (!currentFile) return alert("Select a forest first");
+        if (!currentRoadFile) return alert("Select a forest first");
         roadsVisible = !roadsVisible;
         if (!roadsVisible) { closeNav(); } 
         syncRoads();
@@ -305,7 +317,10 @@
         const select = document.getElementById('forest-select');
         data.forEach(f => {
             const opt = document.createElement('option');
-            opt.value = JSON.stringify(f.bounds); opt.dataset.file = f.file; opt.text = f.name;
+            opt.value = JSON.stringify(f.bounds); 
+            opt.dataset.roadFile = f.road_file;
+            opt.dataset.boundaryFile = f.boundary_file || "undefined";
+            opt.text = f.name;
             select.appendChild(opt);
         });
     });
