@@ -23,13 +23,14 @@
             position: relative; 
         }
         
-        /* Updated Persistent Panel: Greyish transparency */
+        /* Updated Persistent Panel: Higher transparency for better effect */
         #nav-panel { 
             width: 300px; 
             height: 100%; 
-            background: rgba(220, 220, 220, 0.85); 
-            backdrop-filter: blur(8px);
-            border-right: 1px solid rgba(150, 150, 150, 0.5); 
+            background: rgba(180, 180, 180, 0.6); 
+            backdrop-filter: blur(10px); /* Stronger blur makes transparency more obvious */
+            -webkit-backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.3); 
             padding: 15px; 
             display: none; 
             overflow-y: auto;
@@ -55,12 +56,12 @@
         #map { flex-grow: 1; height: 100%; }
         
         select, button { width: 100%; padding: 10px; cursor: pointer; }
-        .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; }
+        .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
         
         .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #999; padding-top: 5px; }
         .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding-bottom: 3px; cursor: pointer; }
-        .dir-item:hover { background: rgba(255, 255, 255, 0.5); }
+        .dir-item:hover { background: rgba(255, 255, 255, 0.7); }
     </style>
 </head>
 <body>
