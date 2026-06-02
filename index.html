@@ -20,22 +20,25 @@
             border: 1px solid #999; 
             overflow: hidden;
             background: #fff;
-            position: relative; /* Ensure children can be positioned relative to this */
+            position: relative; 
         }
         
-        /* Persistent Panel */
+        /* Updated Persistent Panel: Greyish transparency */
         #nav-panel { 
             width: 300px; 
             height: 100%; 
-            background: rgba(255, 255, 255, 0.9); 
-            backdrop-filter: blur(5px);
-            border-right: 1px solid #ccc; 
+            background: rgba(220, 220, 220, 0.85); 
+            backdrop-filter: blur(8px);
+            border-right: 1px solid rgba(150, 150, 150, 0.5); 
             padding: 15px; 
             display: none; 
             overflow-y: auto;
             z-index: 2; 
             box-sizing: border-box;
-            position: relative; /* Added relative to anchor the close button */
+            position: absolute; 
+            top: 0;
+            left: 0;
+            pointer-events: auto;
         }
         
         #close-btn {
@@ -45,19 +48,19 @@
             cursor: pointer;
             font-size: 20px;
             font-weight: bold;
-            color: #555;
+            color: #333;
         }
         #close-btn:hover { color: #000; }
         
         #map { flex-grow: 1; height: 100%; }
         
         select, button { width: 100%; padding: 10px; cursor: pointer; }
-        .route-warning { font-size: 10px; color: #d32f2f; margin-top: 10px; line-height: 1.2; }
-        #route-info { margin-top: 10px; font-weight: bold; color: #1976d2; }
+        .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; }
+        #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
         
-        .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #ccc; padding-top: 5px; }
-        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #ccc; padding-bottom: 3px; cursor: pointer; }
-        .dir-item:hover { background: #e3f2fd; }
+        .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #999; padding-top: 5px; }
+        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding-bottom: 3px; cursor: pointer; }
+        .dir-item:hover { background: rgba(255, 255, 255, 0.5); }
     </style>
 </head>
 <body>
@@ -126,9 +129,7 @@
 
         map.on('load', () => ensureHighlightLayer());
 
-        // Close button logic
         document.getElementById('close-btn').addEventListener('click', closeNav);
-
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
         document.getElementById('toggle-roads').addEventListener('click', toggleRoads);
@@ -273,14 +274,14 @@
         const data = JSON.parse(e.target.value);
         currentFile = e.target.selectedOptions[0].dataset.file;
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
-        closeNav(); // Use closeNav helper
+        closeNav(); 
         syncRoads();
     }
 
     function toggleRoads() {
         if (!currentFile) return alert("Select a forest first");
         roadsVisible = !roadsVisible;
-        if (!roadsVisible) { closeNav(); } // Use closeNav helper
+        if (!roadsVisible) { closeNav(); } 
         syncRoads();
     }
 
