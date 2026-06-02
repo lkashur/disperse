@@ -11,51 +11,44 @@ export default async function handler(req, res) {
 
   if (!feature) return res.status(400).json({ error: "Route data not found." });
 
-  // 1. SMART NAME HANDLING:
-  // Check if destination is a valid name or just a number/null
+  // 1. Extract and Filter Steps
+  // We keep the maneuvers (instructions) rather than just merging everything.
+  const rawSteps = feature.properties.segments[0].steps;
+  
+  // We only care about major maneuvers (e.g., exits, turns, merges) 
+  // and discard minor ones (like 'continue' or small local turns)
+  const relevantSteps = rawSteps
+    .filter(s => s.instruction && s.instruction.length > 5)
+    .map(s => ({
+      instruction: s.instruction,
+      distance: (s.distance / 1609.34).toFixed(1)
+    }));
+
+  const totalMiles = (feature.properties.summary.distance / 1609.34).toFixed(0);
+  
+  // Clean up destination name
   let safeDestination = destination;
   if (!safeDestination || safeDestination === 'null' || safeDestination.length < 3 || /^\d+$/.test(safeDestination)) {
     safeDestination = "your selected forest destination";
   }
 
-  // 2. Logic: Aggregate consecutive segments
-  const rawSteps = feature.properties.segments[0].steps;
-  const aggregated = [];
-  
-  rawSteps.forEach(step => {
-    if (!step.name || step.name.includes("roundabout")) return;
-    
-    const last = aggregated[aggregated.length - 1];
-    if (last && last.name === step.name) {
-      last.distance += step.distance;
-    } else {
-      aggregated.push({ name: step.name, distance: step.distance });
-    }
-  });
-
-  const routeSummary = aggregated.map(s => ({
-    name: s.name,
-    miles: (s.distance / 1609.34).toFixed(1)
-  }));
-
-  const totalMiles = (feature.properties.summary.distance / 1609.34).toFixed(0);
-
   try {
     const { text } = await generateText({
       model: hf('meta-llama/Meta-Llama-3-8B-Instruct'),
-      prompt: `You are a professional navigation assistant. Write a concise, professional summary of the route.
+      prompt: `You are a professional navigation system. Write a concise, step-by-step navigation guide.
 
       DATA:
       - Origin: ${startAddress}
       - Destination: ${safeDestination}
       - Total Distance: ${totalMiles} miles
-      - Route Steps: ${JSON.stringify(routeSummary)}
+      - Maneuvers: ${JSON.stringify(relevantSteps)}
 
       INSTRUCTIONS:
-      1. NARRATE: Write a professional paragraph describing the journey.
-      2. PRIORITIZE: Focus only on major highway transitions, significant road changes, and the final approach.
-      3. ENDING: Conclude with: "...to arrive at ${safeDestination}."
-      4. LENGTH: Keep it under 60 words. No fluff.`,
+      1. STYLE: Strictly directional. Use imperative verbs (e.g., "Merge onto...", "Turn left...", "Take exit...").
+      2. FLOW: Use the provided maneuvers to create a cohesive sequence.
+      3. SUMMARY: If there is a long stretch of highway, summarize the distance (e.g., "Continue on I-5 for 50 miles"). 
+      4. ENDING: Conclude with: "...to arrive at ${safeDestination}."
+      5. LENGTH: Under 75 words. No fluff.`,
     });
 
     return res.status(200).json({ generated_text: text });
