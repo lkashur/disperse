@@ -11,12 +11,26 @@
         body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 20px; text-align: center; }
         #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
-        #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
-        #map-wrapper { flex-grow: 1; position: relative; }
-        #map { width: 100%; height: 600px; border: 1px solid #999; }
         
-        /* Persistent Navigation Panel */
-        #nav-panel { border: 1px solid #ccc; padding: 15px; background: #f9f9f9; display: none; }
+        #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
+        
+        #map-wrapper { flex-grow: 1; position: relative; height: 600px; border: 1px solid #999; }
+        #map { width: 100%; height: 100%; }
+        
+        /* Floating Navigation Panel inside Map Wrapper */
+        #nav-panel { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            z-index: 10; 
+            width: 280px; 
+            background: rgba(255, 255, 255, 0.95); 
+            border: 1px solid #ccc; 
+            padding: 15px; 
+            display: none; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
         
         select, button { width: 100%; padding: 10px; cursor: pointer; }
         .route-warning { font-size: 10px; color: #d32f2f; margin-top: 10px; line-height: 1.2; }
@@ -40,12 +54,14 @@
             <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
         </select>
         <button id="toggle-roads">Toggle MVUM Roads</button>
-        
+    </div>
+    
+    <div id="map-wrapper">
         <div id="nav-panel">
             <div id="nav-content"></div>
         </div>
+        <div id="map"></div>
     </div>
-    <div id="map-wrapper"><div id="map"></div></div>
 </div>
 
 <script>
@@ -58,7 +74,6 @@
     let fullRouteGeometry = null;
     let map;
 
-    // Persist state
     let activeRoadCoords = null;
     let activeRoadName = "";
     let lastRouteSteps = null; 
@@ -86,8 +101,9 @@
             center: [-98.6, 39.8], zoom: 3
         });
 
+        // The FullscreenControl now triggers on #map-wrapper, taking the panel with it
+        map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
-        map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
         map.on('load', () => ensureHighlightLayer());
 
@@ -143,7 +159,6 @@
         });
     }
 
-    // UPDATED: Now renders into sidebar #nav-panel instead of a Popup
     function updateNavPanel(coords, name, steps = null) {
         activeRoadCoords = coords;
         activeRoadName = name;
@@ -215,7 +230,6 @@
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             
-            // Restore sidebar content if it exists
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
                 if (activeHighlightIndex !== null) highlightSegment(activeHighlightIndex);
