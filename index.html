@@ -52,10 +52,10 @@
     let popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false });
     let map;
 
-    // Persist state for restoration
     let activePopupCoords = null;
-    let lastRouteSteps = null;
-    let activeHighlightIndex = null; // Track which segment is highlighted
+    let activeRoadName = "Selected Road";
+    let lastRouteSteps = null; // Persist steps globally
+    let activeHighlightIndex = null;
 
     function processDirections(steps) {
         if (!steps || !Array.isArray(steps)) return [];
@@ -82,9 +82,7 @@
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
-        map.on('load', () => {
-            ensureHighlightLayer();
-        });
+        map.on('load', () => ensureHighlightLayer());
 
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
@@ -96,7 +94,6 @@
         map.on('idle', () => { if (roadsVisible && currentFile && !map.getSource('roads')) syncRoads(); });
     }
 
-    // New helper to ensure layer exists
     function ensureHighlightLayer() {
         if (!map.getSource('highlight-route')) {
             map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
@@ -119,7 +116,6 @@
         }
     }
 
-    // Highlight helper
     function highlightSegment(index) {
         if (!lastRouteSteps) return;
         activeHighlightIndex = index;
@@ -140,8 +136,11 @@
         });
     }
 
-    function showPopup(coords, name) {
+    // UPDATED: Now accepts optional steps to restore state
+    function showPopup(coords, name, steps = null) {
         activePopupCoords = coords;
+        activeRoadName = name;
+        
         popup.setLngLat(coords).setHTML(`
             <strong>Name:</strong> ${name}<br>
             <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
@@ -149,6 +148,11 @@
             <div id="route-info"></div>
             <p class="route-warning"><strong>⚠️ Warning:</strong> Verify closures with USFS MVUM.</p>
         `).addTo(map);
+
+        // If we have saved steps, render them immediately
+        if (steps) {
+            renderRouteInfo(steps);
+        }
 
         document.getElementById('btn-get-route').onclick = async () => {
             const fromText = document.getElementById('from-location').value;
@@ -165,18 +169,23 @@
 
                 fullRouteGeometry = data.features[0].geometry;
                 lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
-
-                document.getElementById('route-info').innerHTML = `
-                    ${Math.round(data.features[0].properties.summary.duration / 60)} min | ${(data.features[0].properties.summary.distance / 1609.34).toFixed(1)} miles
-                    <div class="directions-list">
-                        ${lastRouteSteps.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
-                    </div>
-                `;
-                
-                bindDirectionsClicks(lastRouteSteps);
+                renderRouteInfo(lastRouteSteps);
                 renderRoute(fullRouteGeometry);
             } catch (e) { alert("Could not calculate route"); }
         };
+    }
+
+    // Helper to render the direction list inside the popup
+    function renderRouteInfo(steps) {
+        const infoDiv = document.getElementById('route-info');
+        if (!infoDiv) return;
+        
+        infoDiv.innerHTML = `
+            <div class="directions-list">
+                ${steps.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
+            </div>
+        `;
+        bindDirectionsClicks(steps);
     }
 
     async function handleRoadClick(e) {
@@ -198,19 +207,14 @@
         map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${mapTilerKey}`);
         
         map.once('idle', () => { 
-            ensureHighlightLayer(); // Restore the layer
+            ensureHighlightLayer();
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             
             if (wasOpen && activePopupCoords) {
-                showPopup(activePopupCoords, "Selected Road");
-                // Restore directions list if they existed
-                if (lastRouteSteps) {
-                     document.getElementById('route-info').innerHTML = `...Directions...`; // Simplified for restoration
-                     // Re-render list and re-bind clicks
-                     bindDirectionsClicks(lastRouteSteps);
-                     if (activeHighlightIndex !== null) highlightSegment(activeHighlightIndex);
-                }
+                // Pass lastRouteSteps to restore content
+                showPopup(activePopupCoords, activeRoadName, lastRouteSteps);
+                if (activeHighlightIndex !== null) highlightSegment(activeHighlightIndex);
             }
         });
     }
@@ -222,13 +226,14 @@
         popup.remove();
         activePopupCoords = null;
         activeHighlightIndex = null;
+        lastRouteSteps = null;
         syncRoads();
     }
 
     function toggleRoads() {
         if (!currentFile) return alert("Select a forest first");
         roadsVisible = !roadsVisible;
-        if (!roadsVisible) { popup.remove(); activePopupCoords = null; activeHighlightIndex = null; }
+        if (!roadsVisible) { popup.remove(); activePopupCoords = null; activeHighlightIndex = null; lastRouteSteps = null; }
         syncRoads();
     }
 
