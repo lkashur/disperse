@@ -180,19 +180,43 @@
 
     function syncBoundary() {
         if (map.getLayer('boundary-layer')) map.removeLayer('boundary-layer');
+        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
         
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
+            
+            // Magenta Outline
             map.addLayer({
                 "id": "boundary-layer",
                 "type": "line",
                 "source": "boundary-source",
                 "source-layer": "forest_boundary",
                 "paint": { 
-                    "line-color": "#1b5e20",
-                    "line-width": 2,
-                    "line-dasharray": [2, 2]
+                    "line-color": "#FF00FF",
+                    "line-width": 3,
+                    "line-dasharray": [4, 2]
+                }
+            });
+
+            // Forest Name Label
+            map.addLayer({
+                "id": "boundary-label",
+                "type": "symbol",
+                "source": "boundary-source",
+                "source-layer": "forest_boundary",
+                "minzoom": 8,
+                "layout": {
+                    "text-field": ["get", "FORESTNAME"],
+                    "text-size": 14,
+                    "text-font": ["Open Sans Bold"],
+                    "text-allow-overlap": false,
+                    "symbol-placement": "point"
+                },
+                "paint": {
+                    "text-color": "#FF00FF",
+                    "text-halo-color": "#ffffff",
+                    "text-halo-width": 2
                 }
             });
         }
