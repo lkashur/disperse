@@ -56,6 +56,10 @@
         #map { flex-grow: 1; height: 100%; }
         
         select, button { width: 100%; padding: 10px; cursor: pointer; }
+        
+        /* Instructions Styling */
+        .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
         
@@ -70,6 +74,13 @@
 
 <div id="main-container">
     <div id="sidebar">
+        <div class="instructions">
+            <strong>How to use:</strong><br>
+            1. Select a forest to view map.<br>
+            2. Choose a display style.<br>
+            3. Toggle MVUM roads to see trails.
+        </div>
+        
         <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
         <select id="base-selector">
             <option value="streets-v2" selected>Standard (Streets)</option>
@@ -157,9 +168,9 @@
             map.addLayer({
                 id: 'highlight-route', type: 'line', source: 'highlight-route',
                 paint: { 
-                    'line-color': '#ff00ff', // High contrast magenta
-                    'line-width': 10,       // Thicker
-                    'line-opacity': 0.9     // More solid
+                    'line-color': '#ff00ff', 
+                    'line-width': 10,       
+                    'line-opacity': 0.9     
                 }
             });
         }
