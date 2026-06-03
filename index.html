@@ -121,6 +121,7 @@
     }
 
     function syncLabel() {
+        if (!map.isStyleLoaded()) return;
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) {
             map.addLayer({
@@ -131,7 +132,9 @@
                     "text-field": ["get", "name"],
                     "text-size": 16,
                     "text-font": ["Open Sans Bold"],
-                    "text-anchor": "center"
+                    "text-anchor": "center",
+                    "text-allow-overlap": true,
+                    "text-ignore-placement": true
                 },
                 "paint": {
                     "text-color": "#000",
