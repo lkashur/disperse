@@ -120,11 +120,17 @@
         });
     }
 
-    // FIXED: Cleanly removes and re-adds the label layer and source
+    // UPDATED: Now waits for map style to be loaded before adding layer
     function syncLabel() {
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         
         if (map.getSource('label-source')) {
+            // If the map isn't ready to accept layers, wait for the next styledata event
+            if (!map.isStyleLoaded()) {
+                map.once('styledata', syncLabel);
+                return;
+            }
+
             map.addLayer({
                 "id": "boundary-label",
                 "type": "symbol",
@@ -212,11 +218,10 @@
         }
     }
 
-    // FIXED: Now ensures source removal before re-adding, preventing "stuck" labels
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
-        if (map.getSource('label-source')) map.removeSource('label-source'); // Force removal
+        if (map.getSource('label-source')) map.removeSource('label-source');
         
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
