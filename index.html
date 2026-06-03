@@ -220,6 +220,7 @@
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
         if (map.getSource('label-source')) map.removeSource('label-source');
         
+        // 1. Boundary source and layer (if file exists)
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
             
@@ -235,7 +236,10 @@
                     }
                 });
             }
+        }
 
+        // 2. Label source (Always add if bounds exist)
+        if (currentBounds) {
             const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
             map.addSource('label-source', {
                 type: 'geojson',
