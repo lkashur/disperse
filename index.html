@@ -120,9 +120,8 @@
         });
     }
 
+    // FIXED: Cleanly removes and re-adds the label layer and source
     function syncLabel() {
-        // Removed the !map.isStyleLoaded() check because it was preventing the label 
-        // from rendering during rapid map state changes.
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         
         if (map.getSource('label-source')) {
@@ -142,15 +141,7 @@
                     "text-color": "#000",
                     "text-halo-color": "#ffffff",
                     "text-halo-width": 2,
-                    "text-opacity": [
-                        "interpolate",
-                        ["linear"],
-                        ["zoom"],
-                        3, 0,
-                        6, 1,
-                        12, 1,
-                        15, 0
-                    ]
+                    "text-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0, 6, 1, 12, 1, 15, 0]
                 }
             });
         }
@@ -212,7 +203,6 @@
         if (map.getLayer('road-core')) map.removeLayer('road-core');
         if (map.getSource('roads')) map.removeSource('roads');
         
-        // Removed !map.isStyleLoaded() check here to match syncLabel logic
         if (roadsVisible && currentRoadFile) {
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentRoadFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
@@ -222,10 +212,11 @@
         }
     }
 
+    // FIXED: Now ensures source removal before re-adding, preventing "stuck" labels
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
-        if (map.getSource('label-source')) map.removeSource('label-source');
+        if (map.getSource('label-source')) map.removeSource('label-source'); // Force removal
         
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
@@ -236,10 +227,7 @@
                     "type": "fill",
                     "source": "boundary-source",
                     "source-layer": "forest_boundary",
-                    "paint": { 
-                        "fill-color": "#2e7d32",
-                        "fill-opacity": 0.3
-                    }
+                    "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 }
                 });
             }
         }
