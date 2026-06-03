@@ -121,8 +121,10 @@
     }
 
     function syncLabel() {
-        if (!map.isStyleLoaded()) return;
+        // Removed the !map.isStyleLoaded() check because it was preventing the label 
+        // from rendering during rapid map state changes.
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
+        
         if (map.getSource('label-source')) {
             map.addLayer({
                 "id": "boundary-label",
@@ -209,7 +211,9 @@
         if (map.getLayer('road-casing')) map.removeLayer('road-casing');
         if (map.getLayer('road-core')) map.removeLayer('road-core');
         if (map.getSource('roads')) map.removeSource('roads');
-        if (roadsVisible && currentRoadFile && map.isStyleLoaded()) {
+        
+        // Removed !map.isStyleLoaded() check here to match syncLabel logic
+        if (roadsVisible && currentRoadFile) {
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentRoadFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
