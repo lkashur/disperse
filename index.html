@@ -120,7 +120,6 @@
         });
     }
 
-    // Helper to keep label on top
     function syncLabel() {
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) {
@@ -137,15 +136,8 @@
                 "paint": {
                     "text-color": "#000",
                     "text-halo-color": "#ffffff",
-                    "text-halo-width": 2,
-                    "text-opacity": [
-                        "interpolate",
-                        ["linear"],
-                        ["zoom"],
-                        4, 0,
-                        7, 1,
-                        10, 0
-                    ]
+                    "text-halo-width": 2
+                    // Removed the interpolation causing the visibility issue
                 }
             });
         }
@@ -211,7 +203,7 @@
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
             if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
-            syncLabel(); // Keep label on top
+            syncLabel();
         }
     }
 
@@ -220,7 +212,6 @@
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
         if (map.getSource('label-source')) map.removeSource('label-source');
         
-        // 1. Boundary source and layer (if file exists)
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
             
@@ -238,7 +229,6 @@
             }
         }
 
-        // 2. Label source (Always add if bounds exist)
         if (currentBounds) {
             const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
             map.addSource('label-source', {
@@ -249,7 +239,7 @@
                     properties: { name: currentForestName }
                 }
             });
-            syncLabel(); // Adds label
+            syncLabel();
         }
     }
 
@@ -334,7 +324,7 @@
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
             map.addLayer({ id: 'route-arrows', type: 'symbol', source: 'route', layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false }, paint: { 'text-color': '#1976d2' } });
         }
-        syncLabel(); // Keep label on top of route
+        syncLabel();
     }
 
     function updateStyle(e) {
