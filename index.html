@@ -232,11 +232,12 @@
                     "text-color": "#000",
                     "text-halo-color": "#ffffff",
                     "text-halo-width": 2,
-                    // Fade label out as user zooms in
+                    // Fade label in from zoom 4 to 7, then out from 7 to 10
                     "text-opacity": [
                         "interpolate",
                         ["linear"],
                         ["zoom"],
+                        4, 0,
                         7, 1,
                         10, 0
                     ]
