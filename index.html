@@ -98,6 +98,8 @@
     let boundaryVisible = false; 
     let currentRoadFile = null;
     let currentBoundaryFile = null;
+    let currentBounds = null;     // Added for centroid calculation
+    let currentForestName = "";   // Added for label text
     let fullRouteGeometry = null;
     let map;
 
@@ -182,35 +184,16 @@
     }
 
     function syncBoundary() {
-        // Clean up previous boundary layers
+        // Clean up previous layers
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
+        if (map.getSource('label-source')) map.removeSource('label-source');
         
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
             
-            // 1. Forest Name Label (Always added)
-            map.addLayer({
-                "id": "boundary-label",
-                "type": "symbol",
-                "source": "boundary-source",
-                "source-layer": "forest_boundary",
-                "minzoom": 8,
-                "layout": {
-                    "text-field": ["get", "FORESTNAME"],
-                    "text-size": 14,
-                    "text-font": ["Open Sans Bold"],
-                    "text-allow-overlap": false
-                },
-                "paint": {
-                    "text-color": "#333",
-                    "text-halo-color": "#ffffff",
-                    "text-halo-width": 2
-                }
-            });
-
-            // 2. Shaded Boundary (Only added if toggled on)
+            // 1. Shaded Boundary
             if (boundaryVisible) {
                 map.addLayer({
                     "id": "boundary-fill",
@@ -223,6 +206,34 @@
                     }
                 });
             }
+
+            // 2. Single Centroid Label
+            const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
+            map.addSource('label-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: center },
+                    properties: { name: currentForestName }
+                }
+            });
+
+            map.addLayer({
+                "id": "boundary-label",
+                "type": "symbol",
+                "source": "label-source",
+                "layout": {
+                    "text-field": ["get", "name"],
+                    "text-size": 16,
+                    "text-font": ["Open Sans Bold"],
+                    "text-anchor": "center"
+                },
+                "paint": {
+                    "text-color": "#000",
+                    "text-halo-color": "#ffffff",
+                    "text-halo-width": 2
+                }
+            });
         }
     }
 
@@ -316,7 +327,7 @@
             ensureHighlightLayer();
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
-            syncBoundary(); // Re-syncs boundary with current persistence state
+            syncBoundary(); 
             
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
@@ -328,6 +339,10 @@
     function handleForestSelect(e) {
         const data = JSON.parse(e.target.value);
         const opt = e.target.selectedOptions[0];
+        
+        // Persist bounds and name
+        currentBounds = data;
+        currentForestName = opt.text;
         
         currentRoadFile = opt.dataset.roadFile;
         currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
