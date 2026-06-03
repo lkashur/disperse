@@ -120,18 +120,31 @@
         });
     }
 
-    // Simplified: Removes and adds the label layer directly.
+    // UPDATED: Now clears existing labels and regenerates them to ensure switching works.
+    // The text-size is scaled using an interpolation expression based on zoom levels.
     function syncLabel() {
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
+        if (map.getSource('label-source')) map.removeSource('label-source');
         
-        if (map.getSource('label-source')) {
+        if (currentBounds && currentForestName) {
+            const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
+            
+            map.addSource('label-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: { type: 'Point', coordinates: center },
+                    properties: { name: currentForestName }
+                }
+            });
+
             map.addLayer({
                 "id": "boundary-label",
                 "type": "symbol",
                 "source": "label-source",
                 "layout": {
                     "text-field": ["get", "name"],
-                    "text-size": 16,
+                    "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 24],
                     "text-font": ["Open Sans Bold"],
                     "text-anchor": "center",
                     "text-allow-overlap": true,
@@ -140,8 +153,7 @@
                 "paint": {
                     "text-color": "#000",
                     "text-halo-color": "#ffffff",
-                    "text-halo-width": 2,
-                    "text-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0, 6, 1, 12, 1, 15, 0]
+                    "text-halo-width": 2
                 }
             });
         }
@@ -208,15 +220,12 @@
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
             if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
-            syncLabel();
         }
     }
 
-    // Now explicitly calls syncLabel immediately after updating/adding source
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
-        if (map.getSource('label-source')) map.removeSource('label-source');
         
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
@@ -231,20 +240,8 @@
                 });
             }
         }
-
-        if (currentBounds) {
-            const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
-            map.addSource('label-source', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: { type: 'Point', coordinates: center },
-                    properties: { name: currentForestName }
-                }
-            });
-            // Immediately sync label after source is added
-            syncLabel();
-        }
+        // Label is now handled independently via syncLabel()
+        syncLabel();
     }
 
     function highlightSegment(index) {
@@ -328,7 +325,6 @@
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
             map.addLayer({ id: 'route-arrows', type: 'symbol', source: 'route', layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false }, paint: { 'text-color': '#1976d2' } });
         }
-        syncLabel();
     }
 
     function updateStyle(e) {
