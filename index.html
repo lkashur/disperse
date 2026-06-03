@@ -120,17 +120,11 @@
         });
     }
 
-    // UPDATED: Now waits for map style to be loaded before adding layer
+    // Simplified: Removes and adds the label layer directly.
     function syncLabel() {
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         
         if (map.getSource('label-source')) {
-            // If the map isn't ready to accept layers, wait for the next styledata event
-            if (!map.isStyleLoaded()) {
-                map.once('styledata', syncLabel);
-                return;
-            }
-
             map.addLayer({
                 "id": "boundary-label",
                 "type": "symbol",
@@ -218,6 +212,7 @@
         }
     }
 
+    // Now explicitly calls syncLabel immediately after updating/adding source
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
@@ -247,6 +242,7 @@
                     properties: { name: currentForestName }
                 }
             });
+            // Immediately sync label after source is added
             syncLabel();
         }
     }
