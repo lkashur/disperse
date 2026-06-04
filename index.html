@@ -109,6 +109,24 @@
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
 
+    // Helper to toggle terrain based on current layer
+    function updateTerrain() {
+        const base = document.getElementById('base-selector').value;
+        const isSatellite = (base === 'satellite' || base === '019e74c9-570e-7893-90e7-a01ec7d07286');
+        
+        if (isSatellite) {
+            if (!map.getSource('terrain')) {
+                map.addSource('terrain', {
+                    type: 'raster-dem',
+                    url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}`
+                });
+            }
+            map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
+        } else {
+            map.setTerrain(null);
+        }
+    }
+
     function processDirections(steps) {
         if (!steps || !Array.isArray(steps)) return [];
         return steps.map((step) => {
@@ -171,7 +189,10 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        map.on('load', () => ensureHighlightLayer());
+        map.on('load', () => {
+            ensureHighlightLayer();
+            updateTerrain();
+        });
 
         document.getElementById('close-btn').addEventListener('click', closeNav);
         document.getElementById('base-selector').addEventListener('change', updateStyle);
@@ -329,6 +350,7 @@
         map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${mapTilerKey}`);
         
         map.once('idle', () => { 
+            updateTerrain();
             ensureHighlightLayer();
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
