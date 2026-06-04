@@ -210,63 +210,61 @@
         });
     }
 
-    function captureView() {
-        // Store original dimensions to restore later
+    async function captureView() {
         const mapWrapper = document.getElementById('map-wrapper');
         const originalWidth = mapWrapper.style.width;
         const originalHeight = mapWrapper.style.height;
-
-        // Force resize to 512x512
+        const originalStyleValue = document.getElementById('base-selector').value;
+        const satelliteStyleURL = `https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`;
+        
+        // Prepare view
         mapWrapper.style.width = '512px';
         mapWrapper.style.height = '512px';
         map.resize();
 
+        // 1. Switch to Satellite
+        map.setStyle(satelliteStyleURL);
+        await new Promise(resolve => map.once('idle', resolve));
+
+        // 2. Hide all layers for clean satellite imagery
         const layers = map.getStyle().layers;
+        layers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        await new Promise(resolve => map.once('idle', resolve));
+
+        // 3. Capture
+        const imgData = map.getCanvas().toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = imgData;
+        link.download = `forest-sat-${Date.now()}.png`;
+        link.click();
+
+        // 4. Metadata
+        const metadata = {
+            forest: currentForestName,
+            bounds: map.getBounds().toArray(),
+            center: map.getCenter(),
+            zoom: map.getZoom(),
+            pitch: map.getPitch(),
+            bearing: map.getBearing(),
+            timestamp: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
+        const metaLink = document.createElement('a');
+        metaLink.href = URL.createObjectURL(blob);
+        metaLink.download = `forest-meta-${Date.now()}.json`;
+        metaLink.click();
+
+        // 5. Restore original state
+        map.setStyle(`https://api.maptiler.com/maps/${originalStyleValue}/style.json?key=${mapTilerKey}`);
+        await new Promise(resolve => map.once('idle', resolve));
         
-        // Identify layers to hide: 
-        // 1. All symbol layers (labels)
-        // 2. All administrative layers (county/state lines)
-        const layersToHide = layers.filter(l => 
-            l.type === 'symbol' || 
-            l.id.includes('admin')
-        );
+        // Sync local overlays back
+        if(roadsVisible) syncRoads();
+        syncBoundary();
         
-        // Hide those layers
-        layersToHide.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
-
-        // Wait for map to re-render
-        map.once('idle', () => {
-            // 1. Capture Image
-            const imgData = map.getCanvas().toDataURL('image/png');
-            const link = document.createElement('a');
-            link.href = imgData;
-            link.download = `forest-ml-${Date.now()}.png`;
-            link.click();
-
-            // 2. Export Metadata
-            const metadata = {
-                forest: currentForestName,
-                bounds: map.getBounds().toArray(),
-                center: map.getCenter(),
-                zoom: map.getZoom(),
-                pitch: map.getPitch(),
-                bearing: map.getBearing(),
-                timestamp: new Date().toISOString()
-            };
-            const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
-            const metaLink = document.createElement('a');
-            metaLink.href = URL.createObjectURL(blob);
-            metaLink.download = `forest-meta-${Date.now()}.json`;
-            metaLink.click();
-
-            // Restore visibility of all hidden layers
-            layersToHide.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
-            
-            // Restore original dimensions
-            mapWrapper.style.width = originalWidth;
-            mapWrapper.style.height = originalHeight;
-            map.resize();
-        });
+        mapWrapper.style.width = originalWidth;
+        mapWrapper.style.height = originalHeight;
+        map.resize();
     }
 
     function closeNav() {
