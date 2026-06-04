@@ -78,7 +78,7 @@
         </select>
         <button id="toggle-roads">Toggle MVUM Roads</button>
         <button id="toggle-boundary">Toggle Forest Boundary</button>
-        <button id="btn-screenshot" style="background: #0d47a1; color: white; border: none; margin-top:10px;">Save Screenshot & Metadata</button>
+        <button id="btn-screenshot" style="background: #2e7d32; color: white; border: none; margin-top: 10px;">Save Screenshot & Metadata</button>
     </div>
     
     <div id="map-wrapper">
@@ -182,7 +182,7 @@
         map = new maplibregl.Map({
             container: 'map',
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
-            center: [-98.6, 39.8], zoom: 3, pitch: 45
+            center: [-98.6, 39.8], zoom: 3
         });
 
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
@@ -212,13 +212,15 @@
 
     function captureView() {
         const layers = map.getStyle().layers;
-        const visibleSymbolLayers = layers.filter(l => l.type === 'symbol' && map.getLayoutProperty(l.id, 'visibility') !== 'none');
+        // Identify all symbol layers currently visible
+        const symbolLayers = layers.filter(l => l.type === 'symbol');
         
-        // Hide all labels
-        visibleSymbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        // Hide all symbols (labels)
+        symbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
 
+        // Wait for map to re-render without labels
         map.once('idle', () => {
-            // 1. Export Image
+            // 1. Capture Image
             const imgData = map.getCanvas().toDataURL('image/png');
             const link = document.createElement('a');
             link.href = imgData;
@@ -242,7 +244,7 @@
             metaLink.click();
 
             // Restore visibility
-            visibleSymbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
+            symbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
         });
     }
 
