@@ -10,43 +10,22 @@
     <style>
         body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 20px; text-align: center; }
+        
+        /* New prominent selector area */
+        #selector-bar { width: 90%; max-width: 1200px; margin-bottom: 20px; background: #fff; padding: 15px; border: 1px solid #ccc; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #forest-select { flex-grow: 1; padding: 10px; font-size: 16px; cursor: pointer; }
+        
         #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
         #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
         
-        #map-wrapper { 
-            flex-grow: 1; 
-            display: flex; 
-            height: 600px; 
-            border: 1px solid #999; 
-            overflow: hidden;
-            background: #fff;
-            position: relative; 
-        }
-        
-        #nav-panel { 
-            width: 300px; 
-            height: 100%; 
-            background: rgba(230, 230, 230, 0.6); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-right: 1px solid rgba(200, 200, 200, 0.5); 
-            padding: 15px; 
-            display: none; 
-            overflow-y: auto;
-            z-index: 2; 
-            box-sizing: border-box;
-            position: absolute; 
-            top: 0;
-            left: 0;
-            pointer-events: auto;
-        }
+        #map-wrapper { flex-grow: 1; display: flex; height: 600px; border: 1px solid #999; overflow: hidden; background: #fff; position: relative; }
+        #nav-panel { width: 300px; height: 100%; background: rgba(230, 230, 230, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(200, 200, 200, 0.5); padding: 15px; display: none; overflow-y: auto; z-index: 2; box-sizing: border-box; position: absolute; top: 0; left: 0; pointer-events: auto; }
         
         #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
         #close-btn:hover { color: #000; }
         
         #map { flex-grow: 1; height: 100%; }
-        
-        select, button { width: 100%; padding: 10px; cursor: pointer; }
+        select, button { padding: 10px; cursor: pointer; }
         
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
@@ -61,16 +40,20 @@
 
 <div id="header"><h1>National Forest Explorer</h1></div>
 
+<div id="selector-bar">
+    <strong>Select a Forest:</strong>
+    <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
+</div>
+
 <div id="main-container">
     <div id="sidebar">
         <div class="instructions">
             <strong>How to use:</strong><br>
-            1. Select a forest to view map.<br>
+            1. Select a forest above.<br>
             2. Choose a display style.<br>
             3. Toggle MVUM roads or boundary shade.
         </div>
         
-        <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
         <select id="base-selector">
             <option value="streets-v2" selected>Standard (Streets)</option>
             <option value="outdoor-v2">Outdoor</option>
@@ -214,32 +197,36 @@
         const mapWrapper = document.getElementById('map-wrapper');
         const originalWidth = mapWrapper.style.width;
         const originalHeight = mapWrapper.style.height;
-        const originalStyle = map.getStyle(); // Save current state
+        const originalStyle = map.getStyle(); 
         const satelliteURL = `https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`;
         
-        // 1. Prepare for export
         mapWrapper.style.width = '512px';
         mapWrapper.style.height = '512px';
         map.resize();
 
-        // 2. Switch to Satellite and wait for it to load
         map.setStyle(satelliteURL);
         await new Promise(resolve => map.once('idle', resolve));
 
-        // 3. Hide ONLY labels, symbols, and administrative text/lines
         const layers = map.getStyle().layers;
-        const layersToHide = layers.filter(l => 
-            l.type === 'symbol' || 
-            l.id.includes('admin') || 
-            l.id.includes('label')
-        );
+        // Robust filtering logic
+        const layersToHide = layers.filter(l => {
+            const id = l.id.toLowerCase();
+            return l.type === 'symbol' || 
+                   (l.type === 'line' && (
+                       id.includes('admin') || 
+                       id.includes('boundary') || 
+                       id.includes('border') || 
+                       id.includes('state') || 
+                       id.includes('county')
+                   ));
+        });
         
-        layersToHide.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        layersToHide.forEach(l => {
+            try { map.setLayoutProperty(l.id, 'visibility', 'none'); } catch (e) {}
+        });
         
-        // Wait for hide to render
         await new Promise(resolve => map.once('idle', resolve));
 
-        // 4. Capture Data
         const imgData = map.getCanvas().toDataURL('image/png');
         const link = document.createElement('a');
         link.href = imgData;
@@ -259,11 +246,9 @@
         metaLink.download = `forest-meta-${Date.now()}.json`;
         metaLink.click();
 
-        // 5. Restore original state
         map.setStyle(originalStyle);
         await new Promise(resolve => map.once('idle', resolve));
         
-        // Re-apply overlays
         if (roadsVisible) syncRoads();
         syncBoundary();
         
