@@ -74,6 +74,7 @@
         <select id="base-selector">
             <option value="streets-v2" selected>Standard (Streets)</option>
             <option value="outdoor-v2">Outdoor</option>
+            <option value="satellite">Satellite (No Labels)</option>
             <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
         </select>
         <button id="toggle-roads">Toggle MVUM Roads</button>
@@ -120,8 +121,6 @@
         });
     }
 
-    // UPDATED: Now clears existing labels and regenerates them to ensure switching works.
-    // The text-size is scaled using an interpolation expression based on zoom levels.
     function syncLabel() {
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) map.removeSource('label-source');
@@ -240,7 +239,6 @@
                 });
             }
         }
-        // Label is now handled independently via syncLabel()
         syncLabel();
     }
 
@@ -335,6 +333,12 @@
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
+
+            // Logic to hide labels if Satellite mode is active
+            if (e.target.value === 'satellite') {
+                if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
+                if (map.getSource('label-source')) map.removeSource('label-source');
+            }
             
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
