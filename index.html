@@ -211,6 +211,16 @@
     }
 
     function captureView() {
+        // Store original dimensions to restore later
+        const mapWrapper = document.getElementById('map-wrapper');
+        const originalWidth = mapWrapper.style.width;
+        const originalHeight = mapWrapper.style.height;
+
+        // Force resize to 512x512
+        mapWrapper.style.width = '512px';
+        mapWrapper.style.height = '512px';
+        map.resize();
+
         const layers = map.getStyle().layers;
         // Identify all symbol layers currently visible
         const symbolLayers = layers.filter(l => l.type === 'symbol');
@@ -245,6 +255,11 @@
 
             // Restore visibility
             symbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
+            
+            // Restore original dimensions
+            mapWrapper.style.width = originalWidth;
+            mapWrapper.style.height = originalHeight;
+            map.resize();
         });
     }
 
