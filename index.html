@@ -214,38 +214,43 @@
         const mapWrapper = document.getElementById('map-wrapper');
         const originalWidth = mapWrapper.style.width;
         const originalHeight = mapWrapper.style.height;
-        const originalStyleValue = document.getElementById('base-selector').value;
-        const satelliteStyleURL = `https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`;
+        const originalStyle = map.getStyle(); // Save current state
+        const satelliteURL = `https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`;
         
-        // Prepare view
+        // 1. Prepare for export
         mapWrapper.style.width = '512px';
         mapWrapper.style.height = '512px';
         map.resize();
 
-        // 1. Switch to Satellite
-        map.setStyle(satelliteStyleURL);
+        // 2. Switch to Satellite and wait for it to load
+        map.setStyle(satelliteURL);
         await new Promise(resolve => map.once('idle', resolve));
 
-        // 2. Hide all layers for clean satellite imagery
+        // 3. Hide ONLY labels, symbols, and administrative text/lines
         const layers = map.getStyle().layers;
-        layers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        const layersToHide = layers.filter(l => 
+            l.type === 'symbol' || 
+            l.id.includes('admin') || 
+            l.id.includes('label')
+        );
+        
+        layersToHide.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        
+        // Wait for hide to render
         await new Promise(resolve => map.once('idle', resolve));
 
-        // 3. Capture
+        // 4. Capture Data
         const imgData = map.getCanvas().toDataURL('image/png');
         const link = document.createElement('a');
         link.href = imgData;
         link.download = `forest-sat-${Date.now()}.png`;
         link.click();
 
-        // 4. Metadata
         const metadata = {
             forest: currentForestName,
             bounds: map.getBounds().toArray(),
             center: map.getCenter(),
             zoom: map.getZoom(),
-            pitch: map.getPitch(),
-            bearing: map.getBearing(),
             timestamp: new Date().toISOString()
         };
         const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
@@ -255,11 +260,11 @@
         metaLink.click();
 
         // 5. Restore original state
-        map.setStyle(`https://api.maptiler.com/maps/${originalStyleValue}/style.json?key=${mapTilerKey}`);
+        map.setStyle(originalStyle);
         await new Promise(resolve => map.once('idle', resolve));
         
-        // Sync local overlays back
-        if(roadsVisible) syncRoads();
+        // Re-apply overlays
+        if (roadsVisible) syncRoads();
         syncBoundary();
         
         mapWrapper.style.width = originalWidth;
