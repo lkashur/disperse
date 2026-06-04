@@ -74,11 +74,11 @@
         <select id="base-selector">
             <option value="streets-v2" selected>Standard (Streets)</option>
             <option value="outdoor-v2">Outdoor</option>
-            <option value="satellite">Satellite (No Labels)</option>
             <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
         </select>
         <button id="toggle-roads">Toggle MVUM Roads</button>
         <button id="toggle-boundary">Toggle Forest Boundary</button>
+        <button id="btn-screenshot" style="background: #0d47a1; color: white; border: none; margin-top:10px;">Save Screenshot & Metadata</button>
     </div>
     
     <div id="map-wrapper">
@@ -111,7 +111,7 @@
 
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
-        const isSatellite = (base === 'satellite' || base === '019e74c9-570e-7893-90e7-a01ec7d07286');
+        const isSatellite = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
         
         if (isSatellite) {
             if (!map.getSource('terrain')) {
@@ -139,16 +139,9 @@
     }
 
     function syncLabel() {
-        // Clean up any existing label before we decide to add it or not
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) map.removeSource('label-source');
         
-        // Guard Clause: If Satellite mode is active, exit here so no label is added
-        const base = document.getElementById('base-selector').value;
-        if (base === 'satellite') {
-            return;
-        }
-
         if (currentBounds && currentForestName) {
             const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
             
@@ -189,7 +182,7 @@
         map = new maplibregl.Map({
             container: 'map',
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
-            center: [-98.6, 39.8], zoom: 3
+            center: [-98.6, 39.8], zoom: 3, pitch: 45
         });
 
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
@@ -200,6 +193,7 @@
             updateTerrain();
         });
 
+        document.getElementById('btn-screenshot').addEventListener('click', captureView);
         document.getElementById('close-btn').addEventListener('click', closeNav);
         document.getElementById('base-selector').addEventListener('change', updateStyle);
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
@@ -213,6 +207,42 @@
         map.on('idle', () => { 
             if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); 
             if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary();
+        });
+    }
+
+    function captureView() {
+        const layers = map.getStyle().layers;
+        const visibleSymbolLayers = layers.filter(l => l.type === 'symbol' && map.getLayoutProperty(l.id, 'visibility') !== 'none');
+        
+        // Hide all labels
+        visibleSymbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+
+        map.once('idle', () => {
+            // 1. Export Image
+            const imgData = map.getCanvas().toDataURL('image/png');
+            const link = document.createElement('a');
+            link.href = imgData;
+            link.download = `forest-view-${Date.now()}.png`;
+            link.click();
+
+            // 2. Export Metadata
+            const metadata = {
+                forest: currentForestName,
+                bounds: map.getBounds().toArray(),
+                center: map.getCenter(),
+                zoom: map.getZoom(),
+                pitch: map.getPitch(),
+                bearing: map.getBearing(),
+                timestamp: new Date().toISOString()
+            };
+            const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
+            const metaLink = document.createElement('a');
+            metaLink.href = URL.createObjectURL(blob);
+            metaLink.download = `forest-meta-${Date.now()}.json`;
+            metaLink.click();
+
+            // Restore visibility
+            visibleSymbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
         });
     }
 
@@ -362,8 +392,6 @@
             if (roadsVisible) syncRoads();
             syncBoundary(); 
 
-            // Redundant label cleanup block removed here as syncLabel handles this now
-            
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
                 if (activeHighlightIndex !== null) highlightSegment(activeHighlightIndex);
