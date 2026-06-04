@@ -222,19 +222,25 @@
         map.resize();
 
         const layers = map.getStyle().layers;
-        // Identify all symbol layers currently visible
-        const symbolLayers = layers.filter(l => l.type === 'symbol');
         
-        // Hide all symbols (labels)
-        symbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
+        // Identify layers to hide: 
+        // 1. All symbol layers (labels)
+        // 2. All administrative layers (county/state lines)
+        const layersToHide = layers.filter(l => 
+            l.type === 'symbol' || 
+            l.id.includes('admin')
+        );
+        
+        // Hide those layers
+        layersToHide.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'none'));
 
-        // Wait for map to re-render without labels
+        // Wait for map to re-render
         map.once('idle', () => {
             // 1. Capture Image
             const imgData = map.getCanvas().toDataURL('image/png');
             const link = document.createElement('a');
             link.href = imgData;
-            link.download = `forest-view-${Date.now()}.png`;
+            link.download = `forest-ml-${Date.now()}.png`;
             link.click();
 
             // 2. Export Metadata
@@ -253,8 +259,8 @@
             metaLink.download = `forest-meta-${Date.now()}.json`;
             metaLink.click();
 
-            // Restore visibility
-            symbolLayers.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
+            // Restore visibility of all hidden layers
+            layersToHide.forEach(l => map.setLayoutProperty(l.id, 'visibility', 'visible'));
             
             // Restore original dimensions
             mapWrapper.style.width = originalWidth;
