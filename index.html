@@ -109,7 +109,6 @@
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
 
-    // Helper to toggle terrain based on current layer
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
         const isSatellite = (base === 'satellite' || base === '019e74c9-570e-7893-90e7-a01ec7d07286');
@@ -140,9 +139,16 @@
     }
 
     function syncLabel() {
+        // Clean up any existing label before we decide to add it or not
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) map.removeSource('label-source');
         
+        // Guard Clause: If Satellite mode is active, exit here so no label is added
+        const base = document.getElementById('base-selector').value;
+        if (base === 'satellite') {
+            return;
+        }
+
         if (currentBounds && currentForestName) {
             const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
             
@@ -356,11 +362,7 @@
             if (roadsVisible) syncRoads();
             syncBoundary(); 
 
-            // Logic to hide labels if Satellite mode is active
-            if (e.target.value === 'satellite') {
-                if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
-                if (map.getSource('label-source')) map.removeSource('label-source');
-            }
+            // Redundant label cleanup block removed here as syncLabel handles this now
             
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
