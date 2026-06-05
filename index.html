@@ -115,6 +115,16 @@
         }
     }
 
+    // Helper to update the UI
+    function updateImageryUI(date) {
+        const dateEl = document.getElementById('imagery-date');
+        if (date) {
+            dateEl.innerHTML = `Imagery Date: ${date}`;
+        } else {
+            dateEl.innerHTML = `Imagery Date: Unavailable`;
+        }
+    }
+
     function updateMapInteractions() {
         const base = document.getElementById('base-selector').value;
         const is3D = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
@@ -152,7 +162,6 @@
         if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
 
         if (document.getElementById('base-selector').value === 'sentinel') {
-            // Only add TIME parameter if we have a valid date
             const timeParam = date ? `&TIME=${date}/${date}` : '';
             
             map.addSource('sentinel-source', {
@@ -462,18 +471,12 @@
         
         if (val === 'sentinel') {
             map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
-            dateEl.innerHTML = `Fetching latest imagery date...`;
+            dateEl.innerHTML = `Loading date...`;
             
             const date = await getLatestSentinelDate(currentBounds);
             sentinelDate = date;
-            
-            if (date) {
-                dateEl.innerHTML = `Recent Imagery (${date})<br><small style="color:green">Imagery from ${date}</small>`;
-                syncSentinel(date);
-            } else {
-                dateEl.innerHTML = `Recent Imagery (Latest Available)`;
-                syncSentinel(null);
-            }
+            updateImageryUI(date);
+            syncSentinel(date);
         } else {
             map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
             dateEl.innerText = "";
@@ -513,14 +516,8 @@
         if (document.getElementById('base-selector').value === 'sentinel') {
             const date = await getLatestSentinelDate(currentBounds);
             sentinelDate = date;
-            
-            if (date) {
-                document.getElementById('imagery-date').innerHTML = `Recent Imagery (${date})<br><small style="color:green">Imagery from ${date}</small>`;
-                syncSentinel(date);
-            } else {
-                document.getElementById('imagery-date').innerHTML = `Recent Imagery (Latest Available)`;
-                syncSentinel(null);
-            }
+            updateImageryUI(date);
+            syncSentinel(date);
         }
     }
 
