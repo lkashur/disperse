@@ -137,7 +137,6 @@
                 return;
             }
 
-            // Manually sort features by date descending
             const sortedFeatures = data.features.sort((a, b) => new Date(b.properties.datetime) - new Date(a.properties.datetime));
 
             dateSelect.innerHTML = '';
@@ -243,23 +242,72 @@
 
     async function captureView() {
         const mapWrapper = document.getElementById('map-wrapper');
-        const originalWidth = mapWrapper.style.width; const originalHeight = mapWrapper.style.height;
-        const originalStyle = map.getStyle(); 
-        mapWrapper.style.width = '512px'; mapWrapper.style.height = '512px'; map.resize();
+        const originalStyle = map.getStyle();
+        const originalWidth = mapWrapper.style.width;
+        const originalHeight = mapWrapper.style.height;
+
+        // 1. Capture current camera state
+        const currentView = {
+            center: map.getCenter(),
+            zoom: map.getZoom(),
+            bearing: map.getBearing(),
+            pitch: map.getPitch()
+        };
+
+        // 2. Define snapshot state (Rotation kept, Pitch forced to 0)
+        const snapshotView = {
+            center: currentView.center,
+            zoom: currentView.zoom,
+            bearing: currentView.bearing,
+            pitch: 0 
+        };
+
+        // 3. Prep map for snapshot
+        mapWrapper.style.width = '512px';
+        mapWrapper.style.height = '512px';
+        map.resize();
 
         map.setStyle(`https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`);
+        await new Promise(resolve => map.once('styledata', resolve));
+
+        // 4. Set camera state for snapshot
+        map.jumpTo(snapshotView);
         await new Promise(resolve => map.once('idle', resolve));
+
+        // 5. Capture image
         const imgData = map.getCanvas().toDataURL('image/png');
-        const link = document.createElement('a'); link.href = imgData; link.download = `forest-sat-${Date.now()}.png`; link.click();
+        const link = document.createElement('a');
+        link.href = imgData;
+        link.download = `forest-sat-${Date.now()}.png`;
+        link.click();
 
-        const metadata = { forest: currentForestName, bounds: map.getBounds().toArray(), center: map.getCenter(), zoom: map.getZoom(), timestamp: new Date().toISOString() };
+        // 6. Save metadata
+        const metadata = { 
+            forest: currentForestName, 
+            bounds: map.getBounds().toArray(), 
+            center: currentView.center, 
+            zoom: currentView.zoom, 
+            bearing: currentView.bearing,
+            pitch: currentView.pitch,
+            timestamp: new Date().toISOString() 
+        };
         const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
-        const metaLink = document.createElement('a'); metaLink.href = URL.createObjectURL(blob); metaLink.download = `forest-meta-${Date.now()}.json`; metaLink.click();
+        const metaLink = document.createElement('a');
+        metaLink.href = URL.createObjectURL(blob);
+        metaLink.download = `forest-meta-${Date.now()}.json`;
+        metaLink.click();
 
+        // 7. Restore map
         map.setStyle(originalStyle);
+        await new Promise(resolve => map.once('styledata', resolve));
+        map.jumpTo(currentView);
+
         await new Promise(resolve => map.once('idle', resolve));
-        if (roadsVisible) syncRoads(); syncBoundary();
-        mapWrapper.style.width = originalWidth; mapWrapper.style.height = originalHeight; map.resize();
+        if (roadsVisible) syncRoads();
+        syncBoundary();
+        mapWrapper.style.width = originalWidth;
+        mapWrapper.style.height = originalHeight;
+        map.resize();
     }
 
     function closeNav() {
