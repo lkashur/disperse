@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
+        * { box-sizing: border-box; } /* Ensures padding/borders don't affect width */
         body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 20px; text-align: center; }
         #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
@@ -23,21 +24,21 @@
             margin-top: 15px; 
             padding-top: 15px; 
             border-top: 2px solid #ddd; 
-            width: 100%; /* Explicitly set to match parent */
+            width: 100%; 
+            display: block;
         }
         #snapshot-map { 
-            width: 100%;           /* Fills the width of the sidebar exactly */
-            display: block;        /* Ensures it behaves like the buttons */
-            aspect-ratio: 1 / 1;   /* Perfect square */
-            background: none;      /* Removes grey background */
+            width: 100%;
+            display: block;        
+            aspect-ratio: 1 / 1;   
+            background: none;      
             margin-top: 10px; 
             border: 1px solid #ccc; 
             overflow: hidden; 
-            box-sizing: border-box;
         }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
-        select, button { padding: 10px; cursor: pointer; width: 100%; box-sizing: border-box; }
+        select, button { padding: 10px; cursor: pointer; width: 100%; }
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
@@ -203,13 +204,11 @@
             snapshotMap.setStyle(style);
         }
 
-        // Force the map to refresh the canvas size to the container size
         setTimeout(() => {
             snapshotMap.resize();
             snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
         }, 100);
 
-        // Add/Update Download Link
         const container = document.getElementById('snapshot-container');
         let dlBtn = document.getElementById('high-res-dl');
         if (!dlBtn) {
