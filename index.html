@@ -88,9 +88,8 @@
     let currentForestName = "";
     let fullRouteGeometry = null;
     let map;
-    let snapshotMap; // The widget map instance
+    let snapshotMap; 
 
-    // ... [Other state variables remain the same]
     let activeRoadCoords = null;
     let activeRoadName = "";
     let lastRouteSteps = null; 
@@ -105,7 +104,6 @@
         } catch (e) { return null; }
     }
 
-    // Helper for Sentinel API
     async function getLatestSentinelDate(bbox) {
         const token = await getAccessToken();
         if (!token) return null;
@@ -129,10 +127,15 @@
         } catch (e) { return null; }
     }
 
-    // Logic to add/update the Snapshot Widget
     async function updateSnapshot() {
         const dateEl = document.getElementById('snapshot-date');
+        const container = document.getElementById('snapshot-map');
         dateEl.innerText = "Fetching imagery...";
+        
+        // Match dimensions to container aspect ratio
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        const currentBearing = map.getBearing(); 
         
         const b = map.getBounds();
         const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
@@ -150,8 +153,8 @@
             sources: {
                 'raster-tiles': {
                     type: 'raster',
-                    tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857&TIME=${date}/${date}&access_token=${token}`],
-                    tileSize: 512
+                    tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857&TIME=${date}/${date}&access_token=${token}`],
+                    tileSize: 256
                 }
             },
             layers: [{ id: 'simple-tiles', type: 'raster', source: 'raster-tiles' }]
@@ -163,12 +166,14 @@
                 style: style,
                 center: map.getCenter(),
                 zoom: map.getZoom(),
+                bearing: currentBearing, // Sync rotation
                 interactive: false
             });
         } else {
             snapshotMap.setStyle(style);
             snapshotMap.setCenter(map.getCenter());
             snapshotMap.setZoom(map.getZoom());
+            snapshotMap.setBearing(currentBearing); // Update existing map rotation
         }
     }
 
