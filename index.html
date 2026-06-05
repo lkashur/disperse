@@ -19,7 +19,15 @@
         #map { flex-grow: 1; height: 100%; }
         
         /* Snapshot Widget Styles */
-        #snapshot-container { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+        #snapshot-container { 
+            margin-top: 10px; 
+            padding-top: 10px; 
+            border-top: 1px solid #eee; 
+            margin-left: -20px; 
+            margin-right: -20px; 
+            padding-left: 20px; 
+            padding-right: 20px;
+        }
         #snapshot-map { 
             width: 100%; 
             aspect-ratio: 1 / 1; 
@@ -196,7 +204,24 @@
         } else {
             snapshotMap.setStyle(style);
             snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
+            snapshotMap.resize(); // Fix map rendering
         }
+
+        // Add/Update Download Link
+        const container = document.getElementById('snapshot-container');
+        let dlBtn = document.getElementById('high-res-dl');
+        if (!dlBtn) {
+            dlBtn = document.createElement('a');
+            dlBtn.id = 'high-res-dl';
+            dlBtn.innerText = "Download 512x512 Source Image";
+            dlBtn.style.display = "block";
+            dlBtn.style.fontSize = "10px";
+            dlBtn.style.marginTop = "5px";
+            dlBtn.style.textAlign = "center";
+            container.appendChild(dlBtn);
+        }
+        dlBtn.href = wmsUrl;
+        dlBtn.download = `sentinel-full-${Date.now()}.png`;
     }
 
     function updateMapInteractions() {
