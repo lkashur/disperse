@@ -23,21 +23,21 @@
             margin-top: 15px; 
             padding-top: 15px; 
             border-top: 2px solid #ddd; 
-            display: flex;
-            flex-direction: column;
-            align-items: center; 
+            width: 100%; /* Explicitly set to match parent */
         }
         #snapshot-map { 
-            width: 100%;           /* Matches button width */
+            width: 100%;           /* Fills the width of the sidebar exactly */
+            display: block;        /* Ensures it behaves like the buttons */
             aspect-ratio: 1 / 1;   /* Perfect square */
-            background: none;      /* Removed grey placeholder */
+            background: none;      /* Removes grey background */
             margin-top: 10px; 
             border: 1px solid #ccc; 
             overflow: hidden; 
+            box-sizing: border-box;
         }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
-        select, button { padding: 10px; cursor: pointer; width: 100%; }
+        select, button { padding: 10px; cursor: pointer; width: 100%; box-sizing: border-box; }
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
