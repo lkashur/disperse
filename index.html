@@ -153,7 +153,8 @@
         const token = await getAccessToken();
         
         // Explicitly use CRS=EPSG:4326 to force the WMS to interpret the BBOX as Lat/Lon
-        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX=${bboxString}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
+        // Added VERSION=1.1.1 and STYLES= required for Copernicus WMS
+        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX=${bboxString}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
 
         const style = {
             version: 8,
