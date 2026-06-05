@@ -30,6 +30,7 @@
         .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #999; padding-top: 5px; }
         .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding-bottom: 3px; cursor: pointer; }
         .dir-item:hover { background: rgba(255, 255, 255, 0.7); }
+        #imagery-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
     </style>
 </head>
 <body>
@@ -50,10 +51,11 @@
             <option value="streets-v2" selected>Standard (Streets)</option>
             <option value="outdoor-v2">Outdoor</option>
             <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
+            <option value="sentinel">Recent Imagery</option>
         </select>
+        <div id="imagery-date"></div>
         <button id="toggle-roads">Toggle MVUM Roads</button>
         <button id="toggle-boundary">Toggle Forest Boundary</button>
-        <button id="toggle-sentinel">Toggle Recent Imagery</button>
         <button id="btn-screenshot" style="background: #2e7d32; color: white; border: none; margin-top: 10px;">Save Screenshot & Metadata</button>
     </div>
     
@@ -70,12 +72,12 @@
     let mapTilerKey = null;
     let sentinelInstanceId = null;
     let sentinelLayerId = null;
+    let sentinelDate = "2026-06-05"; // Set this date
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
     let roadsVisible = false;
     let boundaryVisible = false; 
-    let sentinelVisible = false;
     let currentRoadFile = null;
     let currentBoundaryFile = null;
     let currentBounds = null;
@@ -180,7 +182,6 @@
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
         document.getElementById('toggle-roads').addEventListener('click', toggleRoads);
         document.getElementById('toggle-boundary').addEventListener('click', toggleBoundary);
-        document.getElementById('toggle-sentinel').addEventListener('click', toggleSentinel);
         
         map.on('click', 'road-core', handleRoadClick);
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
@@ -207,7 +208,6 @@
         await new Promise(resolve => map.once('idle', resolve));
 
         const layers = map.getStyle().layers;
-        // Robust filtering logic
         const layersToHide = layers.filter(l => {
             const id = l.id.toLowerCase();
             return l.type === 'symbol' || 
@@ -250,7 +250,6 @@
         
         if (roadsVisible) syncRoads();
         syncBoundary();
-        if (sentinelVisible) syncSentinel();
         
         mapWrapper.style.width = originalWidth;
         mapWrapper.style.height = originalHeight;
@@ -314,7 +313,7 @@
         if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
         if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
 
-        if (sentinelVisible) {
+        if (document.getElementById('base-selector').value === 'sentinel') {
             map.addSource('sentinel-source', {
                 type: 'raster',
                 tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857`],
@@ -327,11 +326,6 @@
                 paint: { 'raster-opacity': 1 }
             });
         }
-    }
-
-    function toggleSentinel() {
-        sentinelVisible = !sentinelVisible;
-        syncSentinel();
     }
 
     function highlightSegment(index) {
@@ -418,7 +412,16 @@
     }
 
     function updateStyle(e) {
-        map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${mapTilerKey}`);
+        const val = e.target.value;
+        const dateEl = document.getElementById('imagery-date');
+        
+        if (val === 'sentinel') {
+            map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
+            dateEl.innerText = `Recent Imagery (${sentinelDate})`;
+        } else {
+            map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
+            dateEl.innerText = "";
+        }
         
         map.once('idle', () => { 
             updateTerrain();
@@ -426,7 +429,7 @@
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
-            if (sentinelVisible) syncSentinel();
+            syncSentinel();
 
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
@@ -449,7 +452,7 @@
         closeNav(); 
         syncRoads();
         syncBoundary();
-        if (sentinelVisible) syncSentinel();
+        syncSentinel();
     }
 
     function toggleRoads() {
