@@ -132,14 +132,17 @@
         const container = document.getElementById('snapshot-map');
         dateEl.innerText = "Fetching imagery...";
         
-        // Match dimensions to container aspect ratio
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+        // High-res screen logic + aspect ratio
+        const dpr = window.devicePixelRatio || 1;
+        const width = Math.round(container.clientWidth * dpr);
+        const height = Math.round(container.clientHeight * dpr);
         const currentBearing = map.getBearing(); 
         
         const b = map.getBounds();
-        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
-        const date = await getLatestSentinelDate(bbox);
+        // Construct explicit WGS84 BBOX: west, south, east, north
+        const bboxString = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+        
+        const date = await getLatestSentinelDate([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
         
         if (!date) {
             dateEl.innerText = "Imagery unavailable";
@@ -148,12 +151,16 @@
         dateEl.innerText = `Latest Imagery Date: ${date}`;
 
         const token = await getAccessToken();
+        
+        // Explicitly use CRS=EPSG:4326 to force the WMS to interpret the BBOX as Lat/Lon
+        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX=${bboxString}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
+
         const style = {
             version: 8,
             sources: {
                 'raster-tiles': {
                     type: 'raster',
-                    tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857&TIME=${date}/${date}&access_token=${token}`],
+                    tiles: [wmsUrl],
                     tileSize: 256
                 }
             },
@@ -166,14 +173,17 @@
                 style: style,
                 center: map.getCenter(),
                 zoom: map.getZoom(),
-                bearing: currentBearing, // Sync rotation
+                bearing: currentBearing,
                 interactive: false
             });
         } else {
             snapshotMap.setStyle(style);
-            snapshotMap.setCenter(map.getCenter());
-            snapshotMap.setZoom(map.getZoom());
-            snapshotMap.setBearing(currentBearing); // Update existing map rotation
+            // Use jumpTo to prevent animation artifacts/shifting
+            snapshotMap.jumpTo({
+                center: map.getCenter(),
+                zoom: map.getZoom(),
+                bearing: currentBearing
+            });
         }
     }
 
