@@ -23,6 +23,7 @@
         #map { flex-grow: 1; height: 100%; }
         
         #snapshot-container { margin-top: 15px; padding-top: 15px; border-top: 2px solid #ddd; width: 100%; }
+        #snapshot-map { display: none; width: 100%; height: 250px; object-fit: cover; margin-top: 10px; border: 1px solid #ccc; }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; box-sizing: border-box; }
@@ -64,6 +65,7 @@
             <button id="btn-fetch-dates" style="background: #0d47a1; color: white; border: none;">Load Available Dates</button>
             <select id="date-select"></select>
             <button id="btn-view-snapshot" style="background: #2e7d32; color: white; border: none; display: none;">View Selected Date</button>
+            <img id="snapshot-map" src="" alt="Satellite Preview">
             <div id="snapshot-date"></div>
             <div style="font-size: 9px; color: #888; text-align: center; margin-top: 5px;">Contains modified Copernicus Sentinel data</div>
         </div>
@@ -98,9 +100,6 @@
     let activeRoadName = "";
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
-    
-    // Track satellite layer
-    let currentSatelliteLayerId = 'satellite-layer';
 
     async function getAccessToken() {
         try {
@@ -151,30 +150,23 @@
         } catch (e) { dateSelect.innerHTML = '<option>Error loading dates</option>'; }
     }
 
-    async function loadSatelliteLayer() {
+    // Only affects the sidebar image, NOT the map
+    async function loadSatellitePreview() {
         const selectedDate = document.getElementById('date-select').value;
         const dateEl = document.getElementById('snapshot-date');
+        const imgEl = document.getElementById('snapshot-map');
         const token = await getAccessToken();
         
-        dateEl.innerText = "Loading layer...";
+        dateEl.innerText = "Loading preview...";
+        imgEl.style.display = 'block';
 
-        if (map.getLayer(currentSatelliteLayerId)) map.removeLayer(currentSatelliteLayerId);
-        if (map.getSource('satellite-source')) map.removeSource('satellite-source');
+        const bounds = map.getBounds();
+        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
 
-        map.addSource('satellite-source', {
-            type: 'raster',
-            tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857&TIME=${selectedDate}/${selectedDate}&access_token=${token}`],
-            tileSize: 256
-        });
+        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX=${bbox}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
 
-        map.addLayer({
-            id: currentSatelliteLayerId,
-            type: 'raster',
-            source: 'satellite-source',
-            paint: { 'raster-opacity': 0.8 }
-        }, 'road-core'); // Insert below roads
-
-        dateEl.innerText = `Active: ${selectedDate}`;
+        imgEl.src = wmsUrl;
+        dateEl.innerText = `Preview: ${selectedDate}`;
     }
 
     function updateMapInteractions() {
@@ -205,7 +197,7 @@
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
-        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatelliteLayer);
+        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
         
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
         document.getElementById('close-btn').addEventListener('click', closeNav);
