@@ -127,20 +127,31 @@
         } catch (e) { return null; }
     }
 
+    function getSquareBounds(map) {
+        const center = map.getCenter();
+        const bounds = map.getBounds();
+        const latDiff = Math.abs(bounds.getNorth() - bounds.getSouth());
+        const lngDiff = Math.abs(bounds.getEast() - bounds.getWest());
+        const size = Math.max(latDiff, lngDiff); 
+        
+        return new maplibregl.LngLatBounds(
+            [center.lng - size / 2, center.lat - size / 2],
+            [center.lng + size / 2, center.lat + size / 2]
+        );
+    }
+
     async function updateSnapshot() {
         const dateEl = document.getElementById('snapshot-date');
-        const container = document.getElementById('snapshot-map');
         dateEl.innerText = "Fetching imagery...";
         
-        const dpr = window.devicePixelRatio || 1;
-        const width = Math.round(container.clientWidth * dpr);
-        const height = Math.round(container.clientHeight * dpr);
-        const b = map.getBounds();
+        const squareBounds = getSquareBounds(map);
         
-        // Use EPSG:3857 for compatibility with MapLibre to fix alignment shifts
-        const bboxString = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-        
-        const date = await getLatestSentinelDate([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+        const date = await getLatestSentinelDate([
+            squareBounds.getWest(), 
+            squareBounds.getSouth(), 
+            squareBounds.getEast(), 
+            squareBounds.getNorth()
+        ]);
         
         if (!date) {
             dateEl.innerText = "Imagery unavailable";
@@ -149,9 +160,8 @@
         dateEl.innerText = `Latest Imagery Date: ${date}`;
 
         const token = await getAccessToken();
-        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX=${bboxString}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
+        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX=${squareBounds.getWest()},${squareBounds.getSouth()},${squareBounds.getEast()},${squareBounds.getNorth()}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
 
-        // Create an 'image' source instead of 'raster' tiles to avoid duplication
         const style = {
             version: 8,
             sources: {
@@ -159,10 +169,10 @@
                     type: 'image',
                     url: wmsUrl,
                     coordinates: [
-                        [b.getWest(), b.getNorth()],
-                        [b.getEast(), b.getNorth()],
-                        [b.getEast(), b.getSouth()],
-                        [b.getWest(), b.getSouth()]
+                        [squareBounds.getWest(), squareBounds.getNorth()],
+                        [squareBounds.getEast(), squareBounds.getNorth()],
+                        [squareBounds.getEast(), squareBounds.getSouth()],
+                        [squareBounds.getWest(), squareBounds.getSouth()]
                     ]
                 }
             },
@@ -173,16 +183,12 @@
             snapshotMap = new maplibregl.Map({
                 container: 'snapshot-map',
                 style: style,
-                center: map.getCenter(),
-                zoom: map.getZoom(),
                 interactive: false
             });
+            snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
         } else {
             snapshotMap.setStyle(style);
-            snapshotMap.jumpTo({
-                center: map.getCenter(),
-                zoom: map.getZoom()
-            });
+            snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
         }
     }
 
