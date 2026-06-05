@@ -64,7 +64,7 @@
     </div>
     
     <div id="map-wrapper">
-        <div id="loader">Loading Sentinel Imagery...</div>
+        <div id="loader">Loading...</div>
         <div id="nav-panel">
             <div id="close-btn">&times;</div>
             <div id="nav-content"></div>
@@ -94,6 +94,10 @@
     let activeRoadName = "";
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
+
+    // Helper functions for UI
+    function showLoader() { document.getElementById('loader').style.display = 'block'; }
+    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
 
     function updateMapInteractions() {
         const base = document.getElementById('base-selector').value;
@@ -207,17 +211,10 @@
             center: [-98.6, 39.8], zoom: 3
         });
 
-        // Listen for data loading state to manage loader visibility
-        map.on('sourcedata', (e) => {
-            if (e.sourceId === 'sentinel-source') {
-                const loader = document.getElementById('loader');
-                if (e.isSourceLoaded) {
-                    loader.style.display = 'none';
-                } else if (document.getElementById('base-selector').value === 'sentinel') {
-                    loader.style.display = 'block';
-                }
-            }
-        });
+        // Event listeners to handle immediate loader feedback
+        map.on('movestart', showLoader);
+        map.on('zoomstart', showLoader);
+        map.on('idle', hideLoader);
 
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -449,9 +446,8 @@
         const val = e.target.value;
         const dateEl = document.getElementById('imagery-date');
         
-        // Show loader if sentinel is being selected
         if (val === 'sentinel') {
-            document.getElementById('loader').style.display = 'block';
+            showLoader();
             map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
             dateEl.innerText = `Recent Imagery (${sentinelDate})`;
         } else {
@@ -485,10 +481,7 @@
         currentRoadFile = opt.dataset.roadFile;
         currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
         
-        // Show loader if we are in sentinel mode
-        if (document.getElementById('base-selector').value === 'sentinel') {
-            document.getElementById('loader').style.display = 'block';
-        }
+        showLoader();
 
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         closeNav(); 
