@@ -53,6 +53,7 @@
         </select>
         <button id="toggle-roads">Toggle MVUM Roads</button>
         <button id="toggle-boundary">Toggle Forest Boundary</button>
+        <button id="toggle-sentinel">Toggle Recent Imagery</button>
         <button id="btn-screenshot" style="background: #2e7d32; color: white; border: none; margin-top: 10px;">Save Screenshot & Metadata</button>
     </div>
     
@@ -67,11 +68,14 @@
 
 <script>
     let mapTilerKey = null;
+    let sentinelInstanceId = null;
+    let sentinelLayerId = null;
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
     let roadsVisible = false;
     let boundaryVisible = false; 
+    let sentinelVisible = false;
     let currentRoadFile = null;
     let currentBoundaryFile = null;
     let currentBounds = null;
@@ -153,6 +157,8 @@
     async function initApp() {
         const config = await fetch('/api/get-config').then(r => r.json());
         mapTilerKey = config.mapTilerKey;
+        sentinelInstanceId = config.sentinelInstanceId;
+        sentinelLayerId = config.sentinelLayerId;
 
         map = new maplibregl.Map({
             container: 'map',
@@ -174,6 +180,7 @@
         document.getElementById('forest-select').addEventListener('change', handleForestSelect);
         document.getElementById('toggle-roads').addEventListener('click', toggleRoads);
         document.getElementById('toggle-boundary').addEventListener('click', toggleBoundary);
+        document.getElementById('toggle-sentinel').addEventListener('click', toggleSentinel);
         
         map.on('click', 'road-core', handleRoadClick);
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
@@ -243,6 +250,7 @@
         
         if (roadsVisible) syncRoads();
         syncBoundary();
+        if (sentinelVisible) syncSentinel();
         
         mapWrapper.style.width = originalWidth;
         mapWrapper.style.height = originalHeight;
@@ -300,6 +308,30 @@
             }
         }
         syncLabel();
+    }
+
+    function syncSentinel() {
+        if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
+        if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
+
+        if (sentinelVisible) {
+            map.addSource('sentinel-source', {
+                type: 'raster',
+                tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857`],
+                tileSize: 512
+            });
+            map.addLayer({
+                id: 'sentinel-layer',
+                type: 'raster',
+                source: 'sentinel-source',
+                paint: { 'raster-opacity': 1 }
+            });
+        }
+    }
+
+    function toggleSentinel() {
+        sentinelVisible = !sentinelVisible;
+        syncSentinel();
     }
 
     function highlightSegment(index) {
@@ -394,6 +426,7 @@
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
+            if (sentinelVisible) syncSentinel();
 
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
@@ -416,6 +449,7 @@
         closeNav(); 
         syncRoads();
         syncBoundary();
+        if (sentinelVisible) syncSentinel();
     }
 
     function toggleRoads() {
