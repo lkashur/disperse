@@ -473,7 +473,15 @@
             map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
             dateEl.innerHTML = `Loading date...`;
             
-            const date = await getLatestSentinelDate(currentBounds);
+            // Get current bounds or map bounds as fallback
+            const bounds = currentBounds || [
+                map.getBounds().getWest(), 
+                map.getBounds().getSouth(), 
+                map.getBounds().getEast(), 
+                map.getBounds().getNorth()
+            ];
+            
+            const date = await getLatestSentinelDate(bounds);
             sentinelDate = date;
             updateImageryUI(date);
             syncSentinel(date);
