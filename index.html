@@ -92,7 +92,6 @@
 
     function updateMapInteractions() {
         const base = document.getElementById('base-selector').value;
-        // Enable tilt/rotate ONLY for the Satellite Hybrid style (contains 3D terrain)
         const is3D = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
         
         if (is3D) {
@@ -101,7 +100,6 @@
         } else {
             map.dragRotate.disable();
             map.touchZoomRotate.disableRotation();
-            // Reset rotation/pitch to flat if locked
             map.setPitch(0);
             map.setBearing(0);
         }
@@ -121,6 +119,26 @@
             map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
         } else {
             map.setTerrain(null);
+        }
+    }
+
+    // Handles adding the Sentinel layer to the map if mode is selected
+    function syncSentinel() {
+        if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
+        if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
+
+        if (document.getElementById('base-selector').value === 'sentinel') {
+            map.addSource('sentinel-source', {
+                type: 'raster',
+                tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857`],
+                tileSize: 512
+            });
+            map.addLayer({
+                id: 'sentinel-layer',
+                type: 'raster',
+                source: 'sentinel-source',
+                paint: { 'raster-opacity': 1 }
+            });
         }
     }
 
@@ -191,7 +209,7 @@
         map.on('load', () => {
             ensureHighlightLayer();
             updateTerrain();
-            updateMapInteractions(); // Initialize interaction state
+            updateMapInteractions(); 
         });
 
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
@@ -268,6 +286,7 @@
         
         if (roadsVisible) syncRoads();
         syncBoundary();
+        syncSentinel(); // Re-sync sentinel if active
         
         mapWrapper.style.width = originalWidth;
         mapWrapper.style.height = originalHeight;
@@ -424,8 +443,9 @@
         
         map.once('idle', () => { 
             updateTerrain();
-            updateMapInteractions(); // Update interaction state when style changes
+            updateMapInteractions(); 
             ensureHighlightLayer();
+            syncSentinel(); // Added: Re-check/add sentinel layer
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
@@ -451,6 +471,7 @@
         closeNav(); 
         syncRoads();
         syncBoundary();
+        syncSentinel(); // Added: Re-check/add sentinel layer on forest change
     }
 
     function toggleRoads() {
