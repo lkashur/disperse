@@ -132,14 +132,12 @@
         const container = document.getElementById('snapshot-map');
         dateEl.innerText = "Fetching imagery...";
         
-        // High-res screen logic + aspect ratio
         const dpr = window.devicePixelRatio || 1;
         const width = Math.round(container.clientWidth * dpr);
         const height = Math.round(container.clientHeight * dpr);
-        const currentBearing = map.getBearing(); 
-        
         const b = map.getBounds();
-        // Construct explicit WGS84 BBOX: west, south, east, north
+        
+        // Use EPSG:3857 for compatibility with MapLibre to fix alignment shifts
         const bboxString = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
         
         const date = await getLatestSentinelDate([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
@@ -151,21 +149,24 @@
         dateEl.innerText = `Latest Imagery Date: ${date}`;
 
         const token = await getAccessToken();
-        
-        // Explicitly use CRS=EPSG:4326 to force the WMS to interpret the BBOX as Lat/Lon
-        // Added VERSION=1.1.1 and STYLES= required for Copernicus WMS
         const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=${width}&HEIGHT=${height}&FORMAT=image/png&TRANSPARENT=true&BBOX=${bboxString}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
 
+        // Create an 'image' source instead of 'raster' tiles to avoid duplication
         const style = {
             version: 8,
             sources: {
-                'raster-tiles': {
-                    type: 'raster',
-                    tiles: [wmsUrl],
-                    tileSize: 256
+                'snapshot-image': {
+                    type: 'image',
+                    url: wmsUrl,
+                    coordinates: [
+                        [b.getWest(), b.getNorth()],
+                        [b.getEast(), b.getNorth()],
+                        [b.getEast(), b.getSouth()],
+                        [b.getWest(), b.getSouth()]
+                    ]
                 }
             },
-            layers: [{ id: 'simple-tiles', type: 'raster', source: 'raster-tiles' }]
+            layers: [{ id: 'snapshot-layer', type: 'raster', source: 'snapshot-image' }]
         };
 
         if (!snapshotMap) {
@@ -174,16 +175,13 @@
                 style: style,
                 center: map.getCenter(),
                 zoom: map.getZoom(),
-                bearing: currentBearing,
                 interactive: false
             });
         } else {
             snapshotMap.setStyle(style);
-            // Use jumpTo to prevent animation artifacts/shifting
             snapshotMap.jumpTo({
                 center: map.getCenter(),
-                zoom: map.getZoom(),
-                bearing: currentBearing
+                zoom: map.getZoom()
             });
         }
     }
@@ -354,7 +352,7 @@
     function renderRouteInfo(steps) {
         const infoDiv = document.getElementById('route-info');
         if (!infoDiv) return;
-        infoDiv.innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}</div>`;
+        infoDiv.innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" data-index="${idx}">**${s.displayLabel}** (${s.miles} mi)</div>`).join('')}</div>`;
         bindDirectionsClicks(steps);
     }
 
