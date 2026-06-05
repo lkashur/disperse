@@ -73,7 +73,7 @@
     let mapTilerKey = null;
     let sentinelInstanceId = null;
     let sentinelLayerId = null;
-    let sentinelDate = "2026-06-05";
+    let sentinelDate = null;
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
@@ -91,7 +91,6 @@
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
 
-    // Fetch latest date from Copernicus Catalog API
     async function getLatestSentinelDate(bbox) {
         try {
             const response = await fetch('https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search', {
@@ -109,10 +108,10 @@
             if (data.features && data.features.length > 0) {
                 return data.features[0].properties.datetime.split('T')[0];
             }
-            return sentinelDate;
+            return null;
         } catch (e) {
             console.error("Catalog Search Failed:", e);
-            return sentinelDate;
+            return null;
         }
     }
 
@@ -148,12 +147,14 @@
         }
     }
 
-    function syncSentinel(date = sentinelDate) {
+    function syncSentinel(date) {
         if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
         if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
 
         if (document.getElementById('base-selector').value === 'sentinel') {
-            const timeParam = `&TIME=${date}/${date}`;
+            // Only add TIME parameter if we have a valid date
+            const timeParam = date ? `&TIME=${date}/${date}` : '';
+            
             map.addSource('sentinel-source', {
                 type: 'raster',
                 tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857${timeParam}`],
@@ -465,8 +466,14 @@
             
             const date = await getLatestSentinelDate(currentBounds);
             sentinelDate = date;
-            dateEl.innerHTML = `Recent Imagery (${date})<br><small style="color:green">Imagery from ${date}</small>`;
-            syncSentinel(date);
+            
+            if (date) {
+                dateEl.innerHTML = `Recent Imagery (${date})<br><small style="color:green">Imagery from ${date}</small>`;
+                syncSentinel(date);
+            } else {
+                dateEl.innerHTML = `Recent Imagery (Latest Available)`;
+                syncSentinel(null);
+            }
         } else {
             map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
             dateEl.innerText = "";
@@ -476,7 +483,7 @@
             updateTerrain();
             updateMapInteractions(); 
             ensureHighlightLayer();
-            if (val !== 'sentinel') syncSentinel(sentinelDate); 
+            if (val !== 'sentinel') syncSentinel(null); 
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
@@ -506,8 +513,14 @@
         if (document.getElementById('base-selector').value === 'sentinel') {
             const date = await getLatestSentinelDate(currentBounds);
             sentinelDate = date;
-            document.getElementById('imagery-date').innerHTML = `Recent Imagery (${date})<br><small style="color:green">Imagery from ${date}</small>`;
-            syncSentinel(date);
+            
+            if (date) {
+                document.getElementById('imagery-date').innerHTML = `Recent Imagery (${date})<br><small style="color:green">Imagery from ${date}</small>`;
+                syncSentinel(date);
+            } else {
+                document.getElementById('imagery-date').innerHTML = `Recent Imagery (Latest Available)`;
+                syncSentinel(null);
+            }
         }
     }
 
