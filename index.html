@@ -110,11 +110,10 @@
         } catch (e) { return null; }
     }
 
-    // New Function: Fetch list of dates from STAC API
     async function fetchAvailableDates() {
         const dateSelect = document.getElementById('date-select');
         const viewBtn = document.getElementById('btn-view-snapshot');
-        dateSelect.innerHTML = '<option>Loading...</option>';
+        dateSelect.innerHTML = '<option>Searching...</option>';
         dateSelect.style.display = 'block';
 
         const token = await getAccessToken();
@@ -128,8 +127,7 @@
                     bbox: [squareBounds.getWest(), squareBounds.getSouth(), squareBounds.getEast(), squareBounds.getNorth()],
                     datetime: '2026-01-01T00:00:00Z/..',
                     collections: ['sentinel-2-l2a'],
-                    limit: 20,
-                    sortby: [{ field: "datetime", direction: "desc" }]
+                    limit: 20
                 })
             });
             const data = await response.json();
@@ -139,8 +137,11 @@
                 return;
             }
 
+            // Manually sort features by date descending
+            const sortedFeatures = data.features.sort((a, b) => new Date(b.properties.datetime) - new Date(a.properties.datetime));
+
             dateSelect.innerHTML = '';
-            const dates = [...new Set(data.features.map(f => f.properties.datetime.split('T')[0]))];
+            const dates = [...new Set(sortedFeatures.map(f => f.properties.datetime.split('T')[0]))];
             
             dates.forEach(d => {
                 const opt = document.createElement('option');
@@ -174,7 +175,6 @@
         const squareBounds = getSquareBounds(map);
         const token = await getAccessToken();
 
-        // Use the selected date in the TIME parameter
         const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX=${squareBounds.getWest()},${squareBounds.getSouth()},${squareBounds.getEast()},${squareBounds.getNorth()}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
 
         imgEl.src = wmsUrl;
@@ -223,7 +223,6 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        // Snapshot Listeners
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', updateSnapshot);
         
