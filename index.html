@@ -23,7 +23,6 @@
         #map { flex-grow: 1; height: 100%; }
         
         #snapshot-container { margin-top: 15px; padding-top: 15px; border-top: 2px solid #ddd; width: 100%; }
-        #snapshot-map { display: none; width: 100%; height: 250px; object-fit: cover; margin-top: 10px; border: 1px solid #ccc; }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; box-sizing: border-box; }
@@ -65,7 +64,6 @@
             <button id="btn-fetch-dates" style="background: #0d47a1; color: white; border: none;">Load Available Dates</button>
             <select id="date-select"></select>
             <button id="btn-view-snapshot" style="background: #2e7d32; color: white; border: none; display: none;">View Selected Date</button>
-            <img id="snapshot-map" src="" alt="Satellite Snapshot">
             <div id="snapshot-date"></div>
             <div style="font-size: 9px; color: #888; text-align: center; margin-top: 5px;">Contains modified Copernicus Sentinel data</div>
         </div>
@@ -100,6 +98,9 @@
     let activeRoadName = "";
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
+    
+    // Track satellite layer
+    let currentSatelliteLayerId = 'satellite-layer';
 
     async function getAccessToken() {
         try {
@@ -117,17 +118,17 @@
         dateSelect.style.display = 'block';
 
         const token = await getAccessToken();
-        const squareBounds = getSquareBounds(map);
+        const center = map.getCenter();
         
         try {
             const response = await fetch('https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
-                    bbox: [squareBounds.getWest(), squareBounds.getSouth(), squareBounds.getEast(), squareBounds.getNorth()],
+                    bbox: [center.lng - 0.1, center.lat - 0.1, center.lng + 0.1, center.lat + 0.1],
                     datetime: '2026-01-01T00:00:00Z/..',
                     collections: ['sentinel-2-l2a'],
-                    limit: 20
+                    limit: 10
                 })
             });
             const data = await response.json();
@@ -138,7 +139,6 @@
             }
 
             const sortedFeatures = data.features.sort((a, b) => new Date(b.properties.datetime) - new Date(a.properties.datetime));
-
             dateSelect.innerHTML = '';
             const dates = [...new Set(sortedFeatures.map(f => f.properties.datetime.split('T')[0]))];
             
@@ -151,48 +151,30 @@
         } catch (e) { dateSelect.innerHTML = '<option>Error loading dates</option>'; }
     }
 
-    function getSquareBounds(map) {
-        const center = map.getCenter();
-        const bounds = map.getBounds();
-        const latDiff = Math.abs(bounds.getNorth() - bounds.getSouth());
-        const lngDiff = Math.abs(bounds.getEast() - bounds.getWest());
-        const size = Math.max(latDiff, lngDiff); 
-        
-        return new maplibregl.LngLatBounds(
-            [center.lng - size / 2, center.lat - size / 2],
-            [center.lng + size / 2, center.lat + size / 2]
-        );
-    }
-
-    async function updateSnapshot() {
-        const dateEl = document.getElementById('snapshot-date');
-        const imgEl = document.getElementById('snapshot-map');
+    async function loadSatelliteLayer() {
         const selectedDate = document.getElementById('date-select').value;
-        
-        dateEl.innerText = "Loading image...";
-        
-        const squareBounds = getSquareBounds(map);
+        const dateEl = document.getElementById('snapshot-date');
         const token = await getAccessToken();
+        
+        dateEl.innerText = "Loading layer...";
 
-        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX=${squareBounds.getWest()},${squareBounds.getSouth()},${squareBounds.getEast()},${squareBounds.getNorth()}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
+        if (map.getLayer(currentSatelliteLayerId)) map.removeLayer(currentSatelliteLayerId);
+        if (map.getSource('satellite-source')) map.removeSource('satellite-source');
 
-        imgEl.src = wmsUrl;
-        imgEl.style.display = 'block';
-        dateEl.innerText = `Imagery from: ${selectedDate}`;
+        map.addSource('satellite-source', {
+            type: 'raster',
+            tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=256&HEIGHT=256&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857&TIME=${selectedDate}/${selectedDate}&access_token=${token}`],
+            tileSize: 256
+        });
 
-        let dlBtn = document.getElementById('high-res-dl');
-        if (!dlBtn) {
-            dlBtn = document.createElement('a');
-            dlBtn.id = 'high-res-dl';
-            dlBtn.innerText = "Download Image";
-            dlBtn.style.display = "block";
-            dlBtn.style.fontSize = "10px";
-            dlBtn.style.marginTop = "5px";
-            dlBtn.style.textAlign = "center";
-            document.getElementById('snapshot-container').appendChild(dlBtn);
-        }
-        dlBtn.href = wmsUrl;
-        dlBtn.download = `sentinel-${selectedDate}.png`;
+        map.addLayer({
+            id: currentSatelliteLayerId,
+            type: 'raster',
+            source: 'satellite-source',
+            paint: { 'raster-opacity': 0.8 }
+        }, 'road-core'); // Insert below roads
+
+        dateEl.innerText = `Active: ${selectedDate}`;
     }
 
     function updateMapInteractions() {
@@ -223,7 +205,7 @@
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
-        document.getElementById('btn-view-snapshot').addEventListener('click', updateSnapshot);
+        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatelliteLayer);
         
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
         document.getElementById('close-btn').addEventListener('click', closeNav);
@@ -241,65 +223,19 @@
     }
 
     async function captureView() {
-        const mapWrapper = document.getElementById('map-wrapper');
-        const originalWidth = mapWrapper.style.width;
-        const originalHeight = mapWrapper.style.height;
-
-        // 1. Capture current camera state
-        const currentView = {
-            center: map.getCenter(),
-            zoom: map.getZoom(),
-            bearing: map.getBearing(),
-            pitch: map.getPitch()
-        };
-
-        // 2. Add satellite source/layer dynamically
-        if (!map.getSource('satellite-source')) {
-            map.addSource('satellite-source', {
-                type: 'raster',
-                tiles: ['https://api.maptiler.com/tiles/satellite/{z}/{x}/{y}.jpg?key=' + mapTilerKey],
-                tileSize: 256
-            });
-            map.addLayer({
-                id: 'satellite-layer',
-                type: 'raster',
-                source: 'satellite-source',
-                paint: { 'raster-opacity': 1 }
-            });
-        }
-
-        // 3. Prep map container
-        mapWrapper.style.width = '512px';
-        mapWrapper.style.height = '512px';
-        map.resize();
-
-        // 4. Force camera update after resize
-        // Using a tiny timeout to ensure resize layout is processed before applying bearing
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        map.setCenter(currentView.center);
-        map.setZoom(currentView.zoom);
-        map.setBearing(currentView.bearing);
-        map.setPitch(0);
-
-        // 5. Wait for the map to stabilize
-        await new Promise(resolve => map.once('idle', resolve));
-
-        // 6. Capture image
         const imgData = map.getCanvas().toDataURL('image/png');
         const link = document.createElement('a');
         link.href = imgData;
-        link.download = `forest-sat-${Date.now()}.png`;
+        link.download = `forest-view-${Date.now()}.png`;
         link.click();
 
-        // 7. Save metadata
         const metadata = { 
             forest: currentForestName, 
             bounds: map.getBounds().toArray(), 
-            center: currentView.center, 
-            zoom: currentView.zoom, 
-            bearing: currentView.bearing,
-            pitch: currentView.pitch,
+            center: map.getCenter(), 
+            zoom: map.getZoom(), 
+            bearing: map.getBearing(),
+            pitch: map.getPitch(),
             timestamp: new Date().toISOString() 
         };
         const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
@@ -307,16 +243,6 @@
         metaLink.href = URL.createObjectURL(blob);
         metaLink.download = `forest-meta-${Date.now()}.json`;
         metaLink.click();
-
-        // 8. Cleanup
-        map.removeLayer('satellite-layer');
-        map.removeSource('satellite-source');
-        
-        // 9. Restore
-        mapWrapper.style.width = originalWidth;
-        mapWrapper.style.height = originalHeight;
-        map.resize();
-        map.jumpTo(currentView); 
     }
 
     function closeNav() {
