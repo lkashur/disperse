@@ -242,11 +242,10 @@
 
     async function captureView() {
         const mapWrapper = document.getElementById('map-wrapper');
-        const originalStyle = map.getStyle();
         const originalWidth = mapWrapper.style.width;
         const originalHeight = mapWrapper.style.height;
 
-        // 1. Capture current camera state
+        // 1. Capture current camera state (This preserves your bearing!)
         const currentView = {
             center: map.getCenter(),
             zoom: map.getZoom(),
@@ -254,34 +253,45 @@
             pitch: map.getPitch()
         };
 
-        // 2. Define snapshot state (Rotation kept, Pitch forced to 0)
-        const snapshotView = {
-            center: currentView.center,
-            zoom: currentView.zoom,
-            bearing: currentView.bearing,
-            pitch: 0 
-        };
+        // 2. Add satellite source/layer dynamically (ONLY for the screenshot)
+        if (!map.getSource('satellite-source')) {
+            map.addSource('satellite-source', {
+                type: 'raster',
+                tiles: ['https://api.maptiler.com/tiles/satellite/{z}/{x}/{y}.jpg?key=' + mapTilerKey],
+                tileSize: 256
+            });
+            map.addLayer({
+                id: 'satellite-layer',
+                type: 'raster',
+                source: 'satellite-source',
+                paint: { 'raster-opacity': 1 }
+            });
+        }
 
-        // 3. Prep map for snapshot
+        // 3. Prep map container for snapshot
         mapWrapper.style.width = '512px';
         mapWrapper.style.height = '512px';
         map.resize();
 
-        map.setStyle(`https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`);
-        await new Promise(resolve => map.once('styledata', resolve));
+        // 4. Set the camera to your original bearing, but flatten the pitch for the photo
+        map.jumpTo({
+            center: currentView.center,
+            zoom: currentView.zoom,
+            bearing: currentView.bearing, 
+            pitch: 0                      
+        });
 
-        // 4. Set camera state for snapshot
-        map.jumpTo(snapshotView);
+        // 5. Wait for the satellite tiles to load and the map to be idle
         await new Promise(resolve => map.once('idle', resolve));
 
-        // 5. Capture image
+        // 6. Capture image
         const imgData = map.getCanvas().toDataURL('image/png');
         const link = document.createElement('a');
         link.href = imgData;
         link.download = `forest-sat-${Date.now()}.png`;
         link.click();
 
-        // 6. Save metadata
+        // 7. Save metadata
         const metadata = { 
             forest: currentForestName, 
             bounds: map.getBounds().toArray(), 
@@ -297,17 +307,15 @@
         metaLink.download = `forest-meta-${Date.now()}.json`;
         metaLink.click();
 
-        // 7. Restore map
-        map.setStyle(originalStyle);
-        await new Promise(resolve => map.once('styledata', resolve));
-        map.jumpTo(currentView);
-
-        await new Promise(resolve => map.once('idle', resolve));
-        if (roadsVisible) syncRoads();
-        syncBoundary();
+        // 8. Cleanup: Remove the layer/source so it stops loading
+        map.removeLayer('satellite-layer');
+        map.removeSource('satellite-source');
+        
+        // 9. Restore map to original size and view
         mapWrapper.style.width = originalWidth;
         mapWrapper.style.height = originalHeight;
         map.resize();
+        map.jumpTo(currentView); 
     }
 
     function closeNav() {
