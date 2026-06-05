@@ -21,6 +21,10 @@
         #close-btn:hover { color: #000; }
         
         #map { flex-grow: 1; height: 100%; }
+        
+        /* Loader styles */
+        #loader { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; background: rgba(0,0,0,0.7); color: white; padding: 15px 25px; border-radius: 8px; font-weight: bold; pointer-events: none; }
+        
         select, button { padding: 10px; cursor: pointer; width: 100%; }
         
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
@@ -60,6 +64,7 @@
     </div>
     
     <div id="map-wrapper">
+        <div id="loader">Loading Sentinel Imagery...</div>
         <div id="nav-panel">
             <div id="close-btn">&times;</div>
             <div id="nav-content"></div>
@@ -122,7 +127,6 @@
         }
     }
 
-    // Handles adding the Sentinel layer to the map if mode is selected
     function syncSentinel() {
         if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
         if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
@@ -226,6 +230,8 @@
         map.on('idle', () => { 
             if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); 
             if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary();
+            // Hide loader when map is idle
+            document.getElementById('loader').style.display = 'none';
         });
     }
 
@@ -286,7 +292,7 @@
         
         if (roadsVisible) syncRoads();
         syncBoundary();
-        syncSentinel(); // Re-sync sentinel if active
+        syncSentinel();
         
         mapWrapper.style.width = originalWidth;
         mapWrapper.style.height = originalHeight;
@@ -433,7 +439,9 @@
         const val = e.target.value;
         const dateEl = document.getElementById('imagery-date');
         
+        // Show loader if sentinel is being selected
         if (val === 'sentinel') {
+            document.getElementById('loader').style.display = 'block';
             map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
             dateEl.innerText = `Recent Imagery (${sentinelDate})`;
         } else {
@@ -445,7 +453,7 @@
             updateTerrain();
             updateMapInteractions(); 
             ensureHighlightLayer();
-            syncSentinel(); // Added: Re-check/add sentinel layer
+            syncSentinel(); 
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
@@ -467,11 +475,16 @@
         currentRoadFile = opt.dataset.roadFile;
         currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
         
+        // Show loader if we are in sentinel mode
+        if (document.getElementById('base-selector').value === 'sentinel') {
+            document.getElementById('loader').style.display = 'block';
+        }
+
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         closeNav(); 
         syncRoads();
         syncBoundary();
-        syncSentinel(); // Added: Re-check/add sentinel layer on forest change
+        syncSentinel();
     }
 
     function toggleRoads() {
