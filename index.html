@@ -72,7 +72,7 @@
     let mapTilerKey = null;
     let sentinelInstanceId = null;
     let sentinelLayerId = null;
-    let sentinelDate = "2026-06-05"; // Set this date
+    let sentinelDate = "2026-06-05";
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
@@ -89,6 +89,23 @@
     let activeRoadName = "";
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
+
+    function updateMapInteractions() {
+        const base = document.getElementById('base-selector').value;
+        // Enable tilt/rotate ONLY for the Satellite Hybrid style (contains 3D terrain)
+        const is3D = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
+        
+        if (is3D) {
+            map.dragRotate.enable();
+            map.touchZoomRotate.enableRotation();
+        } else {
+            map.dragRotate.disable();
+            map.touchZoomRotate.disableRotation();
+            // Reset rotation/pitch to flat if locked
+            map.setPitch(0);
+            map.setBearing(0);
+        }
+    }
 
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
@@ -174,6 +191,7 @@
         map.on('load', () => {
             ensureHighlightLayer();
             updateTerrain();
+            updateMapInteractions(); // Initialize interaction state
         });
 
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
@@ -309,25 +327,6 @@
         syncLabel();
     }
 
-    function syncSentinel() {
-        if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
-        if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
-
-        if (document.getElementById('base-selector').value === 'sentinel') {
-            map.addSource('sentinel-source', {
-                type: 'raster',
-                tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857`],
-                tileSize: 512
-            });
-            map.addLayer({
-                id: 'sentinel-layer',
-                type: 'raster',
-                source: 'sentinel-source',
-                paint: { 'raster-opacity': 1 }
-            });
-        }
-    }
-
     function highlightSegment(index) {
         if (!lastRouteSteps) return;
         activeHighlightIndex = index;
@@ -425,11 +424,11 @@
         
         map.once('idle', () => { 
             updateTerrain();
+            updateMapInteractions(); // Update interaction state when style changes
             ensureHighlightLayer();
             if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
             if (roadsVisible) syncRoads();
             syncBoundary(); 
-            syncSentinel();
 
             if (activeRoadCoords) {
                 updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
@@ -452,7 +451,6 @@
         closeNav(); 
         syncRoads();
         syncBoundary();
-        syncSentinel();
     }
 
     function toggleRoads() {
