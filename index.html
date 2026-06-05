@@ -10,24 +10,17 @@
     <style>
         body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 20px; text-align: center; }
-        
         #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
         #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
-        
         #map-wrapper { flex-grow: 1; display: flex; height: 600px; border: 1px solid #999; overflow: hidden; background: #fff; position: relative; }
         #nav-panel { width: 300px; height: 100%; background: rgba(230, 230, 230, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(200, 200, 200, 0.5); padding: 15px; display: none; overflow-y: auto; z-index: 2; box-sizing: border-box; position: absolute; top: 0; left: 0; pointer-events: auto; }
-        
         #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
         #close-btn:hover { color: #000; }
-        
         #map { flex-grow: 1; height: 100%; }
-        
         select, button { padding: 10px; cursor: pointer; width: 100%; }
-        
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
-        
         .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #999; padding-top: 5px; }
         .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding-bottom: 3px; cursor: pointer; }
         .dir-item:hover { background: rgba(255, 255, 255, 0.7); }
@@ -91,7 +84,6 @@
     let lastRouteSteps = null; 
     let activeHighlightIndex = null;
 
-    // Secure token fetcher
     async function getAccessToken() {
         try {
             const response = await fetch('/api/get-token');
@@ -108,6 +100,9 @@
         const token = await getAccessToken();
         if (!token) return null;
 
+        // Ensure bbox is a flat array of 4 numbers
+        const formattedBbox = Array.isArray(bbox) ? bbox : [bbox.getWest(), bbox.getSouth(), bbox.getEast(), bbox.getNorth()];
+
         try {
             const response = await fetch('https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search', {
                 method: 'POST',
@@ -116,16 +111,18 @@
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    bbox: bbox,
+                    bbox: formattedBbox,
                     datetime: '2026-01-01T00:00:00Z/..',
                     collections: ['sentinel-2-l2a'],
-                    limit: 1,
-                    sortby: [{ field: 'datetime', direction: 'desc' }]
+                    limit: 10 
                 })
             });
             const data = await response.json();
+            
             if (data.features && data.features.length > 0) {
-                return data.features[0].properties.datetime.split('T')[0];
+                // Client-side sort to replace the invalid 'sortby' parameter
+                const sorted = data.features.sort((a, b) => new Date(b.properties.datetime) - new Date(a.properties.datetime));
+                return sorted[0].properties.datetime.split('T')[0];
             }
             return null;
         } catch (e) {
@@ -134,20 +131,14 @@
         }
     }
 
-    // Helper to update the UI
     function updateImageryUI(date) {
         const dateEl = document.getElementById('imagery-date');
-        if (date) {
-            dateEl.innerHTML = `Imagery Date: ${date}`;
-        } else {
-            dateEl.innerHTML = `Imagery Date: Unavailable`;
-        }
+        dateEl.innerHTML = date ? `Imagery Date: ${date}` : `Imagery Date: Unavailable`;
     }
 
     function updateMapInteractions() {
         const base = document.getElementById('base-selector').value;
         const is3D = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
-        
         if (is3D) {
             map.dragRotate.enable();
             map.touchZoomRotate.enableRotation();
@@ -162,13 +153,9 @@
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
         const isSatellite = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
-        
         if (isSatellite) {
             if (!map.getSource('terrain')) {
-                map.addSource('terrain', {
-                    type: 'raster-dem',
-                    url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}`
-                });
+                map.addSource('terrain', { type: 'raster-dem', url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}` });
             }
             map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
         } else {
@@ -190,63 +177,29 @@
                 tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857${timeParam}${authParam}`],
                 tileSize: 512
             });
-            map.addLayer({
-                id: 'sentinel-layer',
-                type: 'raster',
-                source: 'sentinel-source',
-                paint: { 'raster-opacity': 1 }
-            });
+            map.addLayer({ id: 'sentinel-layer', type: 'raster', source: 'sentinel-source', paint: { 'raster-opacity': 1 } });
         }
     }
 
     function processDirections(steps) {
         if (!steps || !Array.isArray(steps)) return [];
-        return steps.map((step) => {
-            const isNameValid = step.name && step.name !== "-" && step.name.toLowerCase() !== "the road";
-            let displayLabel = step.instruction;
-            if (isNameValid && !step.instruction.includes(step.name)) {
-                displayLabel = `${step.instruction} (${step.name})`;
-            }
-            return { ...step, displayLabel, miles: (step.distance / 1609.34).toFixed(1), wayPoints: step.way_points };
-        });
+        return steps.map((step) => ({
+            ...step,
+            displayLabel: (step.name && step.name !== "-" && step.name.toLowerCase() !== "the road" && !step.instruction.includes(step.name)) ? `${step.instruction} (${step.name})` : step.instruction,
+            miles: (step.distance / 1609.34).toFixed(1),
+            wayPoints: step.way_points
+        }));
     }
 
     function syncLabel() {
         if (document.getElementById('base-selector').value === 'sentinel') return;
-
         if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) map.removeSource('label-source');
         
         if (currentBounds && currentForestName) {
             const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
-            
-            map.addSource('label-source', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: { type: 'Point', coordinates: center },
-                    properties: { name: currentForestName }
-                }
-            });
-
-            map.addLayer({
-                "id": "boundary-label",
-                "type": "symbol",
-                "source": "label-source",
-                "layout": {
-                    "text-field": ["get", "name"],
-                    "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 24],
-                    "text-font": ["Open Sans Bold"],
-                    "text-anchor": "center",
-                    "text-allow-overlap": true,
-                    "text-ignore-placement": true
-                },
-                "paint": {
-                    "text-color": "#000",
-                    "text-halo-color": "#ffffff",
-                    "text-halo-width": 2
-                }
-            });
+            map.addSource('label-source', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Point', coordinates: center }, properties: { name: currentForestName } } });
+            map.addLayer({ "id": "boundary-label", "type": "symbol", "source": "label-source", "layout": { "text-field": ["get", "name"], "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 24], "text-font": ["Open Sans Bold"], "text-anchor": "center", "text-allow-overlap": true }, "paint": { "text-color": "#000", "text-halo-color": "#ffffff", "text-halo-width": 2 } });
         }
     }
 
@@ -256,20 +209,11 @@
         sentinelInstanceId = config.sentinelInstanceId;
         sentinelLayerId = config.sentinelLayerId;
 
-        map = new maplibregl.Map({
-            container: 'map',
-            style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`,
-            center: [-98.6, 39.8], zoom: 3
-        });
-
+        map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        map.on('load', () => {
-            ensureHighlightLayer();
-            updateTerrain();
-            updateMapInteractions(); 
-        });
+        map.on('load', () => { ensureHighlightLayer(); updateTerrain(); updateMapInteractions(); });
 
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
         document.getElementById('close-btn').addEventListener('click', closeNav);
@@ -281,83 +225,33 @@
         map.on('click', 'road-core', handleRoadClick);
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
-        
-        map.on('idle', () => { 
-            if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); 
-            if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary();
-        });
+        map.on('idle', () => { if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary(); });
     }
 
     async function captureView() {
         const mapWrapper = document.getElementById('map-wrapper');
-        const originalWidth = mapWrapper.style.width;
-        const originalHeight = mapWrapper.style.height;
+        const originalWidth = mapWrapper.style.width; const originalHeight = mapWrapper.style.height;
         const originalStyle = map.getStyle(); 
-        const satelliteURL = `https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`;
-        
-        mapWrapper.style.width = '512px';
-        mapWrapper.style.height = '512px';
-        map.resize();
+        mapWrapper.style.width = '512px'; mapWrapper.style.height = '512px'; map.resize();
 
-        map.setStyle(satelliteURL);
+        map.setStyle(`https://api.maptiler.com/maps/019e74c9-570e-7893-90e7-a01ec7d07286/style.json?key=${mapTilerKey}`);
         await new Promise(resolve => map.once('idle', resolve));
-
-        const layers = map.getStyle().layers;
-        const layersToHide = layers.filter(l => {
-            const id = l.id.toLowerCase();
-            return l.type === 'symbol' || 
-                   (l.type === 'line' && (
-                       id.includes('admin') || 
-                       id.includes('boundary') || 
-                       id.includes('border') || 
-                       id.includes('state') || 
-                       id.includes('county')
-                   ));
-        });
-        
-        layersToHide.forEach(l => {
-            try { map.setLayoutProperty(l.id, 'visibility', 'none'); } catch (e) {}
-        });
-        
-        await new Promise(resolve => map.once('idle', resolve));
-
         const imgData = map.getCanvas().toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = imgData;
-        link.download = `forest-sat-${Date.now()}.png`;
-        link.click();
+        const link = document.createElement('a'); link.href = imgData; link.download = `forest-sat-${Date.now()}.png`; link.click();
 
-        const metadata = {
-            forest: currentForestName,
-            bounds: map.getBounds().toArray(),
-            center: map.getCenter(),
-            zoom: map.getZoom(),
-            timestamp: new Date().toISOString()
-        };
+        const metadata = { forest: currentForestName, bounds: map.getBounds().toArray(), center: map.getCenter(), zoom: map.getZoom(), timestamp: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
-        const metaLink = document.createElement('a');
-        metaLink.href = URL.createObjectURL(blob);
-        metaLink.download = `forest-meta-${Date.now()}.json`;
-        metaLink.click();
+        const metaLink = document.createElement('a'); metaLink.href = URL.createObjectURL(blob); metaLink.download = `forest-meta-${Date.now()}.json`; metaLink.click();
 
         map.setStyle(originalStyle);
         await new Promise(resolve => map.once('idle', resolve));
-        
-        if (roadsVisible) syncRoads();
-        syncBoundary();
-        await syncSentinel(sentinelDate);
-        
-        mapWrapper.style.width = originalWidth;
-        mapWrapper.style.height = originalHeight;
-        map.resize();
+        if (roadsVisible) syncRoads(); syncBoundary(); await syncSentinel(sentinelDate);
+        mapWrapper.style.width = originalWidth; mapWrapper.style.height = originalHeight; map.resize();
     }
 
     function closeNav() {
         document.getElementById('nav-panel').style.display = 'none';
-        activeRoadCoords = null;
-        activeRoadName = "";
-        lastRouteSteps = null;
-        activeHighlightIndex = null;
+        activeRoadCoords = null; activeRoadName = ""; lastRouteSteps = null; activeHighlightIndex = null;
         if (map.getSource('route')) map.getSource('route').setData({type: 'FeatureCollection', features: []});
         if (map.getSource('highlight-route')) map.getSource('highlight-route').setData({type: 'Feature', geometry: {type: 'LineString', coordinates: []}});
     }
@@ -365,10 +259,7 @@
     function ensureHighlightLayer() {
         if (!map.getSource('highlight-route')) {
             map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
-            map.addLayer({
-                id: 'highlight-route', type: 'line', source: 'highlight-route',
-                paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 }
-            });
+            map.addLayer({ id: 'highlight-route', type: 'line', source: 'highlight-route', paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 } });
         }
     }
 
@@ -376,7 +267,6 @@
         if (map.getLayer('road-casing')) map.removeLayer('road-casing');
         if (map.getLayer('road-core')) map.removeLayer('road-core');
         if (map.getSource('roads')) map.removeSource('roads');
-        
         if (roadsVisible && currentRoadFile) {
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentRoadFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
@@ -387,22 +277,12 @@
 
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
-        if (map.getSource('label-source')) map.removeLayer('boundary-label');
+        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('label-source')) map.removeSource('label-source');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
-        
         if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
-            
-            if (boundaryVisible) {
-                map.addLayer({
-                    "id": "boundary-fill",
-                    "type": "fill",
-                    "source": "boundary-source",
-                    "source-layer": "forest_boundary",
-                    "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 }
-                });
-            }
+            if (boundaryVisible) map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
         }
         syncLabel();
     }
@@ -418,49 +298,32 @@
     }
 
     function bindDirectionsClicks(steps) {
-        const items = document.querySelectorAll('.dir-item');
-        items.forEach(item => {
-            item.onclick = (e) => {
-                e.stopPropagation();
-                highlightSegment(parseInt(item.dataset.index));
-            };
+        document.querySelectorAll('.dir-item').forEach(item => {
+            item.onclick = (e) => { e.stopPropagation(); highlightSegment(parseInt(item.dataset.index)); };
         });
     }
 
     function updateNavPanel(coords, name, steps = null) {
-        activeRoadCoords = coords;
-        activeRoadName = name;
+        activeRoadCoords = coords; activeRoadName = name;
         const panel = document.getElementById('nav-panel');
-        const content = document.getElementById('nav-content');
-        
         panel.style.display = 'block';
-        content.innerHTML = `
+        document.getElementById('nav-content').innerHTML = `
             <strong>Road:</strong> ${name}<br>
             <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
             <button id="btn-get-route">Get Directions</button>
             <div id="route-info"></div>
             <p class="route-warning"><strong>⚠️ Warning:</strong> Verify closures with USFS MVUM.</p>
         `;
-
         if (steps) renderRouteInfo(steps);
-
         document.getElementById('btn-get-route').onclick = async () => {
             const fromText = document.getElementById('from-location').value;
             if (!fromText) return alert("Enter a starting location");
             try {
                 const geo = await fetch(`/api/geocode?q=${encodeURIComponent(fromText)}`).then(r => r.json());
-                const fromCoords = geo.features[0].center; 
-                const routeRes = await fetch('/api/route', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ start: fromCoords, end: [coords.lng, coords.lat] })
-                });
+                const routeRes = await fetch('/api/route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: geo.features[0].center, end: [coords.lng, coords.lat] }) });
                 const data = await routeRes.json();
-
-                fullRouteGeometry = data.features[0].geometry;
-                lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
-                renderRouteInfo(lastRouteSteps);
-                renderRoute(fullRouteGeometry);
+                fullRouteGeometry = data.features[0].geometry; lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
+                renderRouteInfo(lastRouteSteps); renderRoute(fullRouteGeometry);
             } catch (e) { alert("Could not calculate route"); }
         };
     }
@@ -468,112 +331,57 @@
     function renderRouteInfo(steps) {
         const infoDiv = document.getElementById('route-info');
         if (!infoDiv) return;
-        infoDiv.innerHTML = `
-            <div class="directions-list">
-                ${steps.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}
-            </div>
-        `;
+        infoDiv.innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" data-index="${idx}"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}</div>`;
         bindDirectionsClicks(steps);
     }
 
-    async function handleRoadClick(e) {
-        updateNavPanel(e.lngLat, e.features[0].properties.NAME || 'N/A');
-    }
+    async function handleRoadClick(e) { updateNavPanel(e.lngLat, e.features[0].properties.NAME || 'N/A'); }
 
     function renderRoute(geometry) {
-        if (map.getSource('route')) {
-            map.getSource('route').setData(geometry);
-        } else {
+        if (map.getSource('route')) map.getSource('route').setData(geometry);
+        else {
             map.addSource('route', { type: 'geojson', data: geometry });
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
-            map.addLayer({ id: 'route-arrows', type: 'symbol', source: 'route', layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16, 'text-keep-upright': false }, paint: { 'text-color': '#1976d2' } });
+            map.addLayer({ id: 'route-arrows', type: 'symbol', source: 'route', layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16 }, paint: { 'text-color': '#1976d2' } });
         }
     }
 
     async function updateStyle(e) {
         const val = e.target.value;
-        const dateEl = document.getElementById('imagery-date');
-        
         if (val === 'sentinel') {
             map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
-            dateEl.innerHTML = `Loading date...`;
-            
-            const bounds = currentBounds || [
-                map.getBounds().getWest(), 
-                map.getBounds().getSouth(), 
-                map.getBounds().getEast(), 
-                map.getBounds().getNorth()
-            ];
-            
+            document.getElementById('imagery-date').innerHTML = `Loading date...`;
+            const bounds = currentBounds || [map.getBounds().getWest(), map.getBounds().getSouth(), map.getBounds().getEast(), map.getBounds().getNorth()];
             const date = await getLatestSentinelDate(bounds);
-            sentinelDate = date;
-            updateImageryUI(date);
-            await syncSentinel(date);
+            sentinelDate = date; updateImageryUI(date); await syncSentinel(date);
         } else {
             map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
-            dateEl.innerText = "";
+            document.getElementById('imagery-date').innerText = "";
         }
-        
-        map.once('idle', () => { 
-            updateTerrain();
-            updateMapInteractions(); 
-            ensureHighlightLayer();
-            if (val !== 'sentinel') syncSentinel(null); 
-            if (fullRouteGeometry) renderRoute(fullRouteGeometry); 
-            if (roadsVisible) syncRoads();
-            syncBoundary(); 
-
-            if (activeRoadCoords) {
-                updateNavPanel(activeRoadCoords, activeRoadName, lastRouteSteps);
-                if (activeHighlightIndex !== null) highlightSegment(activeHighlightIndex);
-            }
-        });
+        map.once('idle', () => { updateTerrain(); updateMapInteractions(); ensureHighlightLayer(); if (val !== 'sentinel') syncSentinel(null); if (fullRouteGeometry) renderRoute(fullRouteGeometry); if (roadsVisible) syncRoads(); syncBoundary(); });
     }
 
     async function handleForestSelect(e) {
         const data = JSON.parse(e.target.value);
         const opt = e.target.selectedOptions[0];
-        
-        currentBounds = data;
-        currentForestName = opt.text;
-        
-        currentRoadFile = opt.dataset.roadFile;
-        currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
-        
+        currentBounds = data; currentForestName = opt.text;
+        currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
-        closeNav(); 
-        syncRoads();
-        syncBoundary();
-
+        closeNav(); syncRoads(); syncBoundary();
         if (document.getElementById('base-selector').value === 'sentinel') {
             const date = await getLatestSentinelDate(currentBounds);
-            sentinelDate = date;
-            updateImageryUI(date);
-            await syncSentinel(date);
+            sentinelDate = date; updateImageryUI(date); await syncSentinel(date);
         }
     }
 
-    function toggleRoads() {
-        if (!currentRoadFile) return alert("Select a forest first");
-        roadsVisible = !roadsVisible;
-        if (!roadsVisible) { closeNav(); } 
-        syncRoads();
-    }
-
-    function toggleBoundary() {
-        if (!currentBoundaryFile || currentBoundaryFile === "undefined") return alert("Select a forest first");
-        boundaryVisible = !boundaryVisible;
-        syncBoundary();
-    }
+    function toggleRoads() { if (!currentRoadFile) return alert("Select a forest first"); roadsVisible = !roadsVisible; if (!roadsVisible) closeNav(); syncRoads(); }
+    function toggleBoundary() { if (!currentBoundaryFile || currentBoundaryFile === "undefined") return alert("Select a forest first"); boundaryVisible = !boundaryVisible; syncBoundary(); }
 
     fetch('forests.json').then(r => r.json()).then(data => {
         const select = document.getElementById('forest-select');
         data.forEach(f => {
             const opt = document.createElement('option');
-            opt.value = JSON.stringify(f.bounds); 
-            opt.dataset.roadFile = f.road_file;
-            opt.dataset.boundaryFile = f.boundary_file || "undefined";
-            opt.text = f.name;
+            opt.value = JSON.stringify(f.bounds); opt.dataset.roadFile = f.road_file; opt.dataset.boundaryFile = f.boundary_file || "undefined"; opt.text = f.name;
             select.appendChild(opt);
         });
     });
