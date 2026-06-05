@@ -207,10 +207,15 @@
             center: [-98.6, 39.8], zoom: 3
         });
 
-        // Listen specifically for the sentinel source to finish loading
+        // Listen for data loading state to manage loader visibility
         map.on('sourcedata', (e) => {
-            if (e.sourceId === 'sentinel-source' && e.isSourceLoaded) {
-                document.getElementById('loader').style.display = 'none';
+            if (e.sourceId === 'sentinel-source') {
+                const loader = document.getElementById('loader');
+                if (e.isSourceLoaded) {
+                    loader.style.display = 'none';
+                } else if (document.getElementById('base-selector').value === 'sentinel') {
+                    loader.style.display = 'block';
+                }
             }
         });
 
