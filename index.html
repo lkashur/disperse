@@ -8,40 +8,42 @@
     <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
-        /* Force box-sizing to prevent padding/borders from breaking the layout */
         * { box-sizing: border-box; }
         
         body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 20px; text-align: center; }
         #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
+        
+        /* Sidebar styling ensures buttons and containers are aligned */
         #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+        
         #map-wrapper { flex-grow: 1; display: flex; height: 600px; border: 1px solid #999; overflow: hidden; background: #fff; position: relative; }
         #nav-panel { width: 300px; height: 100%; background: rgba(230, 230, 230, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(200, 200, 200, 0.5); padding: 15px; display: none; overflow-y: auto; z-index: 2; position: absolute; top: 0; left: 0; pointer-events: auto; }
         #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
         #close-btn:hover { color: #000; }
         #map { flex-grow: 1; height: 100%; }
         
-        /* Snapshot Widget Styles */
+        /* Snapshot Widget Styles - Forced to 100% width */
         #snapshot-container { 
             margin-top: 15px; 
             padding-top: 15px; 
             border-top: 2px solid #ddd; 
             width: 100%; 
-            display: block; 
+            box-sizing: border-box;
         }
         #snapshot-map { 
             width: 100%; 
             height: 250px; 
             display: block; 
-            background: transparent; /* Removed grey background */
+            background: transparent; 
             margin-top: 10px; 
-            border: none; /* Ensure no border */
+            border: none; 
             overflow: hidden; 
-            box-sizing: border-box; /* Force exact fit */
+            box-sizing: border-box;
         }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
-        select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; }
+        select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; box-sizing: border-box; }
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
@@ -207,7 +209,6 @@
             snapshotMap.setStyle(style);
         }
 
-        // Force resize and fit after render
         setTimeout(() => {
             snapshotMap.resize();
             snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
