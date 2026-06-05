@@ -17,6 +17,12 @@
         #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
         #close-btn:hover { color: #000; }
         #map { flex-grow: 1; height: 100%; }
+        
+        /* Snapshot Widget Styles */
+        #snapshot-container { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
+        #snapshot-map { width: 100%; height: 200px; background: #eee; margin-top: 10px; border: 1px solid #ccc; }
+        #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
+
         select, button { padding: 10px; cursor: pointer; width: 100%; }
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
@@ -24,7 +30,6 @@
         .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #999; padding-top: 5px; }
         .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding-bottom: 3px; cursor: pointer; }
         .dir-item:hover { background: rgba(255, 255, 255, 0.7); }
-        #imagery-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
     </style>
 </head>
 <body>
@@ -45,12 +50,17 @@
             <option value="streets-v2" selected>Standard (Streets)</option>
             <option value="outdoor-v2">Outdoor</option>
             <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
-            <option value="sentinel">Recent Imagery</option>
         </select>
-        <div id="imagery-date"></div>
+        
         <button id="toggle-roads">Toggle MVUM Roads</button>
         <button id="toggle-boundary">Toggle Forest Boundary</button>
         <button id="btn-screenshot" style="background: #2e7d32; color: white; border: none; margin-top: 10px;">Save Screenshot & Metadata</button>
+        
+        <div id="snapshot-container">
+            <button id="btn-snapshot" style="background: #0d47a1; color: white; border: none;">Capture Satellite Snapshot</button>
+            <div id="snapshot-map"></div>
+            <div id="snapshot-date"></div>
+        </div>
     </div>
     
     <div id="map-wrapper">
@@ -66,7 +76,6 @@
     let mapTilerKey = null;
     let sentinelInstanceId = null;
     let sentinelLayerId = null;
-    let sentinelDate = null;
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
@@ -78,7 +87,9 @@
     let currentForestName = "";
     let fullRouteGeometry = null;
     let map;
+    let snapshotMap; // The widget map instance
 
+    // ... [Other state variables remain the same]
     let activeRoadCoords = null;
     let activeRoadName = "";
     let lastRouteSteps = null; 
@@ -90,117 +101,90 @@
             if (!response.ok) throw new Error('Auth failed');
             const data = await response.json();
             return data.access_token;
-        } catch (e) {
-            console.error("Token fetch failed:", e);
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
+    // Helper for Sentinel API
     async function getLatestSentinelDate(bbox) {
         const token = await getAccessToken();
         if (!token) return null;
-
-        // Ensure bbox is a flat array of 4 numbers
-        const formattedBbox = Array.isArray(bbox) ? bbox : [bbox.getWest(), bbox.getSouth(), bbox.getEast(), bbox.getNorth()];
-
         try {
             const response = await fetch('https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
-                    bbox: formattedBbox,
+                    bbox: bbox,
                     datetime: '2026-01-01T00:00:00Z/..',
                     collections: ['sentinel-2-l2a'],
                     limit: 10 
                 })
             });
             const data = await response.json();
-            
-            if (data.features && data.features.length > 0) {
-                // Client-side sort to replace the invalid 'sortby' parameter
+            if (data.features?.length > 0) {
                 const sorted = data.features.sort((a, b) => new Date(b.properties.datetime) - new Date(a.properties.datetime));
                 return sorted[0].properties.datetime.split('T')[0];
             }
             return null;
-        } catch (e) {
-            console.error("Catalog Search Failed:", e);
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
-    function updateImageryUI(date) {
-        const dateEl = document.getElementById('imagery-date');
-        dateEl.innerHTML = date ? `Imagery Date: ${date}` : `Imagery Date: Unavailable`;
+    // Logic to add/update the Snapshot Widget
+    async function updateSnapshot() {
+        const dateEl = document.getElementById('snapshot-date');
+        dateEl.innerText = "Fetching imagery...";
+        
+        const b = map.getBounds();
+        const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+        const date = await getLatestSentinelDate(bbox);
+        
+        if (!date) {
+            dateEl.innerText = "Imagery unavailable";
+            return;
+        }
+        dateEl.innerText = `Latest Imagery Date: ${date}`;
+
+        const token = await getAccessToken();
+        const style = {
+            version: 8,
+            sources: {
+                'raster-tiles': {
+                    type: 'raster',
+                    tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857&TIME=${date}/${date}&access_token=${token}`],
+                    tileSize: 512
+                }
+            },
+            layers: [{ id: 'simple-tiles', type: 'raster', source: 'raster-tiles' }]
+        };
+
+        if (!snapshotMap) {
+            snapshotMap = new maplibregl.Map({
+                container: 'snapshot-map',
+                style: style,
+                center: map.getCenter(),
+                zoom: map.getZoom(),
+                interactive: false
+            });
+        } else {
+            snapshotMap.setStyle(style);
+            snapshotMap.setCenter(map.getCenter());
+            snapshotMap.setZoom(map.getZoom());
+        }
     }
 
     function updateMapInteractions() {
         const base = document.getElementById('base-selector').value;
         const is3D = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
-        if (is3D) {
-            map.dragRotate.enable();
-            map.touchZoomRotate.enableRotation();
-        } else {
-            map.dragRotate.disable();
-            map.touchZoomRotate.disableRotation();
-            map.setPitch(0);
-            map.setBearing(0);
-        }
+        if (is3D) { map.dragRotate.enable(); map.touchZoomRotate.enableRotation(); } 
+        else { map.dragRotate.disable(); map.touchZoomRotate.disableRotation(); map.setPitch(0); map.setBearing(0); }
     }
 
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
         const isSatellite = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
         if (isSatellite) {
-            if (!map.getSource('terrain')) {
-                map.addSource('terrain', { type: 'raster-dem', url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}` });
-            }
+            if (!map.getSource('terrain')) map.addSource('terrain', { type: 'raster-dem', url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}` });
             map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
-        } else {
-            map.setTerrain(null);
-        }
-    }
-
-    async function syncSentinel(date) {
-        if (map.getLayer('sentinel-layer')) map.removeLayer('sentinel-layer');
-        if (map.getSource('sentinel-source')) map.removeSource('sentinel-source');
-
-        if (document.getElementById('base-selector').value === 'sentinel') {
-            const token = await getAccessToken();
-            const timeParam = date ? `&TIME=${date}/${date}` : '';
-            const authParam = token ? `&access_token=${token}` : '';
-            
-            map.addSource('sentinel-source', {
-                type: 'raster',
-                tiles: [`https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&REQUEST=GetMap&LAYERS=${sentinelLayerId}&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX={bbox-epsg-3857}&CRS=EPSG:3857${timeParam}${authParam}`],
-                tileSize: 512
-            });
-            map.addLayer({ id: 'sentinel-layer', type: 'raster', source: 'sentinel-source', paint: { 'raster-opacity': 1 } });
-        }
-    }
-
-    function processDirections(steps) {
-        if (!steps || !Array.isArray(steps)) return [];
-        return steps.map((step) => ({
-            ...step,
-            displayLabel: (step.name && step.name !== "-" && step.name.toLowerCase() !== "the road" && !step.instruction.includes(step.name)) ? `${step.instruction} (${step.name})` : step.instruction,
-            miles: (step.distance / 1609.34).toFixed(1),
-            wayPoints: step.way_points
-        }));
-    }
-
-    function syncLabel() {
-        if (document.getElementById('base-selector').value === 'sentinel') return;
-        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
-        if (map.getSource('label-source')) map.removeSource('label-source');
-        
-        if (currentBounds && currentForestName) {
-            const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
-            map.addSource('label-source', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Point', coordinates: center }, properties: { name: currentForestName } } });
-            map.addLayer({ "id": "boundary-label", "type": "symbol", "source": "label-source", "layout": { "text-field": ["get", "name"], "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 24], "text-font": ["Open Sans Bold"], "text-anchor": "center", "text-allow-overlap": true }, "paint": { "text-color": "#000", "text-halo-color": "#ffffff", "text-halo-width": 2 } });
-        }
+        } else { map.setTerrain(null); }
     }
 
     async function initApp() {
@@ -210,11 +194,11 @@
         sentinelLayerId = config.sentinelLayerId;
 
         map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
+        
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        map.on('load', () => { ensureHighlightLayer(); updateTerrain(); updateMapInteractions(); });
-
+        document.getElementById('btn-snapshot').addEventListener('click', updateSnapshot);
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
         document.getElementById('close-btn').addEventListener('click', closeNav);
         document.getElementById('base-selector').addEventListener('change', updateStyle);
@@ -226,6 +210,8 @@
         map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
         map.on('idle', () => { if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary(); });
+        
+        map.on('load', () => { ensureHighlightLayer(); updateTerrain(); updateMapInteractions(); });
     }
 
     async function captureView() {
@@ -245,7 +231,7 @@
 
         map.setStyle(originalStyle);
         await new Promise(resolve => map.once('idle', resolve));
-        if (roadsVisible) syncRoads(); syncBoundary(); await syncSentinel(sentinelDate);
+        if (roadsVisible) syncRoads(); syncBoundary();
         mapWrapper.style.width = originalWidth; mapWrapper.style.height = originalHeight; map.resize();
     }
 
@@ -285,6 +271,16 @@
             if (boundaryVisible) map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
         }
         syncLabel();
+    }
+
+    function syncLabel() {
+        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
+        if (map.getSource('label-source')) map.removeSource('label-source');
+        if (currentBounds && currentForestName) {
+            const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
+            map.addSource('label-source', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Point', coordinates: center }, properties: { name: currentForestName } } });
+            map.addLayer({ "id": "boundary-label", "type": "symbol", "source": "label-source", "layout": { "text-field": ["get", "name"], "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 24], "text-font": ["Open Sans Bold"], "text-anchor": "center", "text-allow-overlap": true }, "paint": { "text-color": "#000", "text-halo-color": "#ffffff", "text-halo-width": 2 } });
+        }
     }
 
     function highlightSegment(index) {
@@ -328,6 +324,16 @@
         };
     }
 
+    function processDirections(steps) {
+        if (!steps || !Array.isArray(steps)) return [];
+        return steps.map((step) => ({
+            ...step,
+            displayLabel: (step.name && step.name !== "-" && step.name.toLowerCase() !== "the road" && !step.instruction.includes(step.name)) ? `${step.instruction} (${step.name})` : step.instruction,
+            miles: (step.distance / 1609.34).toFixed(1),
+            wayPoints: step.way_points
+        }));
+    }
+
     function renderRouteInfo(steps) {
         const infoDiv = document.getElementById('route-info');
         if (!infoDiv) return;
@@ -348,17 +354,8 @@
 
     async function updateStyle(e) {
         const val = e.target.value;
-        if (val === 'sentinel') {
-            map.setStyle({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#000' } }] });
-            document.getElementById('imagery-date').innerHTML = `Loading date...`;
-            const bounds = currentBounds || [map.getBounds().getWest(), map.getBounds().getSouth(), map.getBounds().getEast(), map.getBounds().getNorth()];
-            const date = await getLatestSentinelDate(bounds);
-            sentinelDate = date; updateImageryUI(date); await syncSentinel(date);
-        } else {
-            map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
-            document.getElementById('imagery-date').innerText = "";
-        }
-        map.once('idle', () => { updateTerrain(); updateMapInteractions(); ensureHighlightLayer(); if (val !== 'sentinel') syncSentinel(null); if (fullRouteGeometry) renderRoute(fullRouteGeometry); if (roadsVisible) syncRoads(); syncBoundary(); });
+        map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
+        map.once('idle', () => { updateTerrain(); updateMapInteractions(); ensureHighlightLayer(); if (fullRouteGeometry) renderRoute(fullRouteGeometry); if (roadsVisible) syncRoads(); syncBoundary(); });
     }
 
     async function handleForestSelect(e) {
@@ -368,10 +365,6 @@
         currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
         map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
         closeNav(); syncRoads(); syncBoundary();
-        if (document.getElementById('base-selector').value === 'sentinel') {
-            const date = await getLatestSentinelDate(currentBounds);
-            sentinelDate = date; updateImageryUI(date); await syncSentinel(date);
-        }
     }
 
     function toggleRoads() { if (!currentRoadFile) return alert("Select a forest first"); roadsVisible = !roadsVisible; if (!roadsVisible) closeNav(); syncRoads(); }
