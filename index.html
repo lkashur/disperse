@@ -33,11 +33,11 @@
             width: 100%; 
             height: 250px; 
             display: block; 
-            background: #eee; 
+            background: transparent; /* Removed grey background */
             margin-top: 10px; 
-            /* Removed border to match button width flush */
-            border: none; 
+            border: none; /* Ensure no border */
             overflow: hidden; 
+            box-sizing: border-box; /* Force exact fit */
         }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
