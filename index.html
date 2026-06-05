@@ -8,13 +8,15 @@
     <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
-        * { box-sizing: border-box; } /* Ensures padding/borders don't affect width */
+        /* Force box-sizing to prevent padding/borders from breaking the layout */
+        * { box-sizing: border-box; }
+        
         body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 20px; text-align: center; }
         #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
-        #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
+        #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
         #map-wrapper { flex-grow: 1; display: flex; height: 600px; border: 1px solid #999; overflow: hidden; background: #fff; position: relative; }
-        #nav-panel { width: 300px; height: 100%; background: rgba(230, 230, 230, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(200, 200, 200, 0.5); padding: 15px; display: none; overflow-y: auto; z-index: 2; box-sizing: border-box; position: absolute; top: 0; left: 0; pointer-events: auto; }
+        #nav-panel { width: 300px; height: 100%; background: rgba(230, 230, 230, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(200, 200, 200, 0.5); padding: 15px; display: none; overflow-y: auto; z-index: 2; position: absolute; top: 0; left: 0; pointer-events: auto; }
         #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
         #close-btn:hover { color: #000; }
         #map { flex-grow: 1; height: 100%; }
@@ -25,20 +27,20 @@
             padding-top: 15px; 
             border-top: 2px solid #ddd; 
             width: 100%; 
-            display: block;
+            display: block; /* Ensures it stays as a block element */
         }
         #snapshot-map { 
-            width: 100%;
-            display: block;        
-            aspect-ratio: 1 / 1;   
-            background: none;      
+            width: 100%; 
+            height: 250px; /* Fixed height is more reliable than aspect-ratio for map divs */
+            display: block; 
+            background: #eee; 
             margin-top: 10px; 
             border: 1px solid #ccc; 
             overflow: hidden; 
         }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
-        select, button { padding: 10px; cursor: pointer; width: 100%; }
+        select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; }
         .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
@@ -204,10 +206,11 @@
             snapshotMap.setStyle(style);
         }
 
+        // Force resize and fit after render
         setTimeout(() => {
             snapshotMap.resize();
             snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
-        }, 100);
+        }, 300);
 
         const container = document.getElementById('snapshot-container');
         let dlBtn = document.getElementById('high-res-dl');
