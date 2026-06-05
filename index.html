@@ -32,22 +32,13 @@
             box-sizing: border-box;
         }
         #snapshot-map { 
-            width: 100% !important; 
-            height: 250px !important; 
-            display: block !important; 
-            background: transparent; 
+            display: none; /* Hidden until loaded */
+            width: 100%; 
+            height: 250px; 
+            object-fit: cover; 
             margin-top: 10px; 
-            border: none; 
-            overflow: hidden; 
-            box-sizing: border-box;
+            border: 1px solid #ccc;
         }
-        
-        /* Force MapLibre internal elements to respect container width */
-        #snapshot-map .maplibregl-canvas-container, 
-        #snapshot-map .maplibregl-canvas {
-            width: 100% !important;
-        }
-
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; box-sizing: border-box; }
@@ -85,7 +76,7 @@
         
         <div id="snapshot-container">
             <button id="btn-snapshot" style="background: #0d47a1; color: white; border: none;">Capture Satellite Snapshot</button>
-            <div id="snapshot-map"></div>
+            <img id="snapshot-map" src="" alt="Satellite Snapshot">
             <div id="snapshot-date"></div>
             <div style="font-size: 9px; color: #888; text-align: center; margin-top: 5px;">Contains modified Copernicus Sentinel data</div>
         </div>
@@ -115,7 +106,6 @@
     let currentForestName = "";
     let fullRouteGeometry = null;
     let map;
-    let snapshotMap; 
 
     let activeRoadCoords = null;
     let activeRoadName = "";
@@ -169,6 +159,8 @@
 
     async function updateSnapshot() {
         const dateEl = document.getElementById('snapshot-date');
+        const imgEl = document.getElementById('snapshot-map');
+        
         dateEl.innerText = "Fetching imagery...";
         
         const squareBounds = getSquareBounds(map);
@@ -189,39 +181,9 @@
         const token = await getAccessToken();
         const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX=${squareBounds.getWest()},${squareBounds.getSouth()},${squareBounds.getEast()},${squareBounds.getNorth()}&CRS=EPSG:4326&TIME=${date}/${date}&access_token=${token}`;
 
-        const style = {
-            version: 8,
-            sources: {
-                'snapshot-image': {
-                    type: 'image',
-                    url: wmsUrl,
-                    coordinates: [
-                        [squareBounds.getWest(), squareBounds.getNorth()],
-                        [squareBounds.getEast(), squareBounds.getNorth()],
-                        [squareBounds.getEast(), squareBounds.getSouth()],
-                        [squareBounds.getWest(), squareBounds.getSouth()]
-                    ]
-                }
-            },
-            layers: [{ id: 'snapshot-layer', type: 'raster', source: 'snapshot-image' }]
-        };
+        imgEl.src = wmsUrl;
+        imgEl.style.display = 'block';
 
-        if (!snapshotMap) {
-            snapshotMap = new maplibregl.Map({
-                container: 'snapshot-map',
-                style: style,
-                interactive: false
-            });
-        } else {
-            snapshotMap.setStyle(style);
-        }
-
-        setTimeout(() => {
-            snapshotMap.resize();
-            snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
-        }, 300);
-
-        const container = document.getElementById('snapshot-container');
         let dlBtn = document.getElementById('high-res-dl');
         if (!dlBtn) {
             dlBtn = document.createElement('a');
@@ -231,7 +193,7 @@
             dlBtn.style.fontSize = "10px";
             dlBtn.style.marginTop = "5px";
             dlBtn.style.textAlign = "center";
-            container.appendChild(dlBtn);
+            document.getElementById('snapshot-container').appendChild(dlBtn);
         }
         dlBtn.href = wmsUrl;
         dlBtn.download = `sentinel-full-${Date.now()}.png`;
