@@ -20,7 +20,14 @@
         
         /* Snapshot Widget Styles */
         #snapshot-container { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; }
-        #snapshot-map { width: 100%; height: 200px; background: #eee; margin-top: 10px; border: 1px solid #ccc; }
+        #snapshot-map { 
+            width: 100%; 
+            aspect-ratio: 1 / 1; 
+            background: #eee; 
+            margin-top: 10px; 
+            border: 1px solid #ccc; 
+            overflow: hidden; 
+        }
         #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
         select, button { padding: 10px; cursor: pointer; width: 100%; }
