@@ -245,7 +245,7 @@
         const originalWidth = mapWrapper.style.width;
         const originalHeight = mapWrapper.style.height;
 
-        // 1. Capture current camera state (This preserves your bearing!)
+        // 1. Capture current camera state
         const currentView = {
             center: map.getCenter(),
             zoom: map.getZoom(),
@@ -253,7 +253,7 @@
             pitch: map.getPitch()
         };
 
-        // 2. Add satellite source/layer dynamically (ONLY for the screenshot)
+        // 2. Add satellite source/layer dynamically
         if (!map.getSource('satellite-source')) {
             map.addSource('satellite-source', {
                 type: 'raster',
@@ -268,20 +268,21 @@
             });
         }
 
-        // 3. Prep map container for snapshot
+        // 3. Prep map container
         mapWrapper.style.width = '512px';
         mapWrapper.style.height = '512px';
         map.resize();
 
-        // 4. Set the camera to your original bearing, but flatten the pitch for the photo
-        map.jumpTo({
-            center: currentView.center,
-            zoom: currentView.zoom,
-            bearing: currentView.bearing, 
-            pitch: 0                      
-        });
+        // 4. Force camera update after resize
+        // Using a tiny timeout to ensure resize layout is processed before applying bearing
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        map.setCenter(currentView.center);
+        map.setZoom(currentView.zoom);
+        map.setBearing(currentView.bearing);
+        map.setPitch(0);
 
-        // 5. Wait for the satellite tiles to load and the map to be idle
+        // 5. Wait for the map to stabilize
         await new Promise(resolve => map.once('idle', resolve));
 
         // 6. Capture image
@@ -307,11 +308,11 @@
         metaLink.download = `forest-meta-${Date.now()}.json`;
         metaLink.click();
 
-        // 8. Cleanup: Remove the layer/source so it stops loading
+        // 8. Cleanup
         map.removeLayer('satellite-layer');
         map.removeSource('satellite-source');
         
-        // 9. Restore map to original size and view
+        // 9. Restore
         mapWrapper.style.width = originalWidth;
         mapWrapper.style.height = originalHeight;
         map.resize();
