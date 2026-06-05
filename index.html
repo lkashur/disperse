@@ -20,17 +20,16 @@
         
         /* Snapshot Widget Styles */
         #snapshot-container { 
-            margin-top: 10px; 
-            padding-top: 10px; 
-            border-top: 1px solid #eee; 
-            margin-left: -20px; 
-            margin-right: -20px; 
-            padding-left: 20px; 
-            padding-right: 20px;
+            margin-top: 15px; 
+            padding-top: 15px; 
+            border-top: 2px solid #ddd; 
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
         }
         #snapshot-map { 
-            width: 100%; 
-            aspect-ratio: 1 / 1; 
+            width: 200px;        /* Fixed, manageable size */
+            height: 200px;       /* Keeps it a perfect square */
             background: #eee; 
             margin-top: 10px; 
             border: 1px solid #ccc; 
@@ -200,12 +199,15 @@
                 style: style,
                 interactive: false
             });
-            snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
         } else {
             snapshotMap.setStyle(style);
-            snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
-            snapshotMap.resize(); // Fix map rendering
         }
+
+        // Force the map to refresh the canvas size to the container size
+        setTimeout(() => {
+            snapshotMap.resize();
+            snapshotMap.fitBounds(squareBounds, { animate: false, padding: 0 });
+        }, 100);
 
         // Add/Update Download Link
         const container = document.getElementById('snapshot-container');
