@@ -207,6 +207,15 @@
             center: [-98.6, 39.8], zoom: 3
         });
 
+        // Use 'data' event to manage loader visibility based on tile loading
+        map.on('data', () => {
+            if (document.getElementById('base-selector').value === 'sentinel') {
+                if (map.areTilesLoaded()) {
+                    document.getElementById('loader').style.display = 'none';
+                }
+            }
+        });
+
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
@@ -230,8 +239,6 @@
         map.on('idle', () => { 
             if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); 
             if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary();
-            // Hide loader when map is idle
-            document.getElementById('loader').style.display = 'none';
         });
     }
 
