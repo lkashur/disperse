@@ -14,42 +14,44 @@
         
         #main-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
         
-        /* Map Layout */
-        /* Removed transition: width to prevent fighting the Fullscreen API layout shift */
-        #map-wrapper { width: 50%; height: 600px; position: relative; border: 1px solid #999; overflow: visible; background: #fff; }
-        #map { width: 100%; height: 100%; }
+        /* --- Map Wrapper --- */
+        /* Normal Mode: Side-by-side flex layout */
+        #map-wrapper { width: 80%; height: 600px; position: relative; border: 1px solid #999; background: #fff; display: flex; }
+        #map { flex-grow: 1; height: 100%; position: relative; }
 
-        /* Drawer Styles */
+        /* --- Drawer Styles --- */
         #drawer-panel { 
             width: 300px; height: 100%; background: white; 
-            position: absolute; top: 0; left: 0; z-index: 20; 
-            box-shadow: 2px 0 10px rgba(0,0,0,0.3); overflow-y: auto; 
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0);
+            flex-shrink: 0; z-index: 20; 
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1); overflow-y: auto; 
+            transition: transform 0.3s ease;
         }
-        
-        /* When map-wrapper has 'menu-closed', slide drawer out */
-        #map-wrapper.menu-closed #drawer-panel { transform: translateX(-300px); }
-        
-        /* The Handle: transitions perfectly with the drawer */
-        #drawer-handle { 
-            position: absolute; top: 100px; left: 300px; z-index: 25; 
-            width: 25px; height: 60px; background: white; 
-            border: 1px solid #999; border-left: none; 
-            border-radius: 0 8px 8px 0; cursor: pointer; 
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1); font-size: 16px; color: #555;
-            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        /* When closed, move handle to the left edge */
-        #map-wrapper.menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
 
+        /* The Handle: Hidden by default, shown in Fullscreen */
+        #drawer-handle { display: none; }
+
+        /* --- Fullscreen Mode Overrides --- */
+        #map-wrapper:fullscreen { display: block; }
+        #map-wrapper:fullscreen #drawer-panel { 
+            position: absolute; top: 0; left: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+        }
+        /* Show handle and enable toggle logic only in Fullscreen */
+        #map-wrapper:fullscreen #drawer-handle { 
+            display: flex; position: absolute; top: 100px; left: 300px; z-index: 25; 
+            width: 25px; height: 60px; background: white; border: 1px solid #999; 
+            border-left: none; border-radius: 0 8px 8px 0; cursor: pointer; 
+            align-items: center; justify-content: center;
+        }
+        
+        /* Drawer Toggle Logic (Only active in Fullscreen) */
+        #map-wrapper:fullscreen.menu-closed #drawer-panel { transform: translateX(-300px); }
+        #map-wrapper:fullscreen.menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
+
+        /* Tabs and Controls */
         .tab-bar { display: flex; border-bottom: 1px solid #ccc; background: #f8f8f8; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: #fff; border-bottom: 2px solid #2e7d32; }
-        
         .tab-content { padding: 15px; }
-
-        /* General Controls */
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 8px; display: block; }
         .instructions { font-size: 13px; color: #555; margin-bottom: 10px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: #ffebee; padding: 5px; border-radius: 4px; }
@@ -64,7 +66,6 @@
 
 <div id="main-container">
     <div id="map-wrapper">
-        
         <div id="drawer-panel">
             <div class="tab-bar">
                 <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
@@ -109,7 +110,7 @@
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
     let roadsVisible = false, boundaryVisible = false, currentRoadFile = null, currentBoundaryFile = null, currentBounds = null, currentForestName = "";
-    let fullRouteGeometry = null, lastRouteSteps = null, activeHighlightIndex = null;
+    let fullRouteGeometry = null, lastRouteSteps = null;
 
     // --- Drawer Logic ---
     function toggleDrawer() {
@@ -117,18 +118,21 @@
         setTimeout(() => map.resize(), 300);
     }
 
+    // Auto-reopen menu when exiting fullscreen
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            document.getElementById('map-wrapper').classList.remove('menu-closed');
+            map.resize();
+        }
+    });
+
     function openTab(tab) {
         document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
         document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
         
+        // Ensure menu is open if switching tabs
         document.getElementById('map-wrapper').classList.remove('menu-closed');
-        map.resize();
-    }
-
-    // --- Expansion Logic ---
-    function expandMap() {
-        document.getElementById('map-wrapper').style.width = '100%';
         map.resize();
     }
 
@@ -211,9 +215,7 @@
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
         if (currentBoundaryFile && currentBoundaryFile !== "undefined" && boundaryVisible) {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
-            // Fill
             map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
-            // Label at centroid
             map.addLayer({
                 "id": "boundary-label",
                 "type": "symbol",
@@ -293,7 +295,6 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         
-        // Ensure map resizes smoothly on fullscreen transitions
         map.on('fullscreen', () => setTimeout(() => map.resize(), 100));
 
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
@@ -308,7 +309,6 @@
             currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile;
             map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
             syncRoads(); syncBoundary();
-            expandMap();
         });
         
         document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; syncRoads(); });
