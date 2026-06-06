@@ -15,6 +15,7 @@
         #main-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
         
         /* Map Layout */
+        /* overflow: visible allows the handle to sit on the edge even when the drawer is hidden */
         #map-wrapper { width: 50%; height: 600px; position: relative; border: 1px solid #999; overflow: visible; background: #fff; transition: width 0.3s ease; }
         #map { width: 100%; height: 100%; }
 
@@ -26,20 +27,21 @@
             transition: transform 0.3s ease; transform: translateX(0);
         }
         
-        /* Toggle Class for Closed State */
+        /* When map-wrapper has 'menu-closed', slide drawer out */
         #map-wrapper.menu-closed #drawer-panel { transform: translateX(-300px); }
         
-        /* The Handle */
+        /* The Handle: transitions perfectly with the drawer */
         #drawer-handle { 
             position: absolute; top: 100px; left: 300px; z-index: 25; 
-            width: 25px; height: 50px; background: white; 
-            border: 1px solid #ccc; border-left: none; 
-            border-radius: 0 5px 5px 0; cursor: pointer; 
+            width: 25px; height: 60px; background: white; 
+            border: 1px solid #999; border-left: none; 
+            border-radius: 0 8px 8px 0; cursor: pointer; 
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1); font-size: 14px; color: #555;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1); font-size: 16px; color: #555;
             transition: left 0.3s ease;
         }
-        #map-wrapper.menu-closed #drawer-handle { left: 0; border-left: 1px solid #ccc; border-radius: 0 5px 5px 0; }
+        /* When closed, move handle to the left edge */
+        #map-wrapper.menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
 
         .tab-bar { display: flex; border-bottom: 1px solid #ccc; background: #f8f8f8; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: bold; }
@@ -111,7 +113,9 @@
 
     // --- Drawer Logic ---
     function toggleDrawer() {
+        // Toggle the class on the wrapper to handle animations via CSS
         document.getElementById('map-wrapper').classList.toggle('menu-closed');
+        // Resize map after animation completes
         setTimeout(() => map.resize(), 300);
     }
 
