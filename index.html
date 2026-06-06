@@ -9,30 +9,31 @@
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
         * { box-sizing: border-box; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; background: #f4f4f4; }
+        #header { padding: 10px; text-align: center; height: 60px; }
+        #main-container { flex-grow: 1; display: flex; width: 95%; max-width: 1400px; margin: 0 auto 20px; }
         
-        body { margin: 0; display: flex; flex-direction: column; min-height: 100vh; align-items: center; font-family: sans-serif; background: #f4f4f4; }
-        #header { padding: 20px; text-align: center; }
-        #main-container { display: flex; width: 90%; max-width: 1200px; gap: 20px; margin-bottom: 20px; }
-        
-        #sidebar { width: 300px; padding: 20px; background: #fff; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
-        
-        #map-wrapper { flex-grow: 1; display: flex; height: 600px; border: 1px solid #999; overflow: hidden; background: #fff; position: relative; }
-        #nav-panel { width: 300px; height: 100%; background: rgba(230, 230, 230, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-right: 1px solid rgba(200, 200, 200, 0.5); padding: 15px; display: none; overflow-y: auto; z-index: 2; position: absolute; top: 0; left: 0; pointer-events: auto; }
-        #close-btn { position: absolute; top: 5px; right: 10px; cursor: pointer; font-size: 20px; font-weight: bold; color: #333; }
-        #close-btn:hover { color: #000; }
-        #map { flex-grow: 1; height: 100%; }
-        
-        #snapshot-container { margin-top: 15px; padding-top: 15px; border-top: 2px solid #ddd; width: 100%; }
+        #map-wrapper { flex-grow: 1; position: relative; border: 1px solid #999; overflow: hidden; background: #fff; }
+        #map { width: 100%; height: 100%; }
 
-        select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; box-sizing: border-box; }
-        #date-select { display: none; margin-bottom: 10px; background: #fff; border: 1px solid #ccc; }
+        /* Drawer Styles */
+        #drawer-toggle { position: absolute; top: 10px; left: 10px; z-index: 10; background: white; padding: 10px 15px; cursor: pointer; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.3); font-weight: bold; }
+        #drawer-panel { width: 300px; height: 100%; background: white; position: absolute; top: 0; left: 0; z-index: 20; display: none; box-shadow: 2px 0 10px rgba(0,0,0,0.3); overflow-y: auto; }
+        
+        .tab-bar { display: flex; border-bottom: 1px solid #ccc; background: #f8f8f8; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: #fff; border-bottom: 2px solid #2e7d32; }
+        
+        .tab-content { padding: 15px; }
+        #close-drawer { position: absolute; top: 5px; right: 5px; cursor: pointer; font-size: 20px; font-weight: bold; }
 
-        .instructions { font-size: 13px; color: #555; margin-bottom: 5px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 4px; }
+        /* General Controls */
+        select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 8px; display: block; }
+        .instructions { font-size: 13px; color: #555; margin-bottom: 10px; line-height: 1.4; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: #ffebee; padding: 5px; border-radius: 4px; }
         #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
-        .directions-list { margin-top: 10px; font-size: 12px; max-height: 300px; overflow-y: auto; border-top: 1px solid #999; padding-top: 5px; }
-        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding-bottom: 3px; cursor: pointer; }
-        .dir-item:hover { background: rgba(255, 255, 255, 0.7); }
+        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding: 5px 0; cursor: pointer; }
+        .dir-item:hover { background: #f0f0f0; }
     </style>
 </head>
 <body>
@@ -40,75 +41,66 @@
 <div id="header"><h1>National Forest Explorer</h1></div>
 
 <div id="main-container">
-    <div id="sidebar">
-        <div class="instructions">
-            <strong>How to use:</strong><br>
-            1. Select a forest to view map.<br>
-            2. Choose a display style.<br>
-            3. Toggle MVUM roads or boundary shade.
-        </div>
-        
-        <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
-        <select id="base-selector">
-            <option value="streets-v2" selected>Standard (Streets)</option>
-            <option value="outdoor-v2">Outdoor</option>
-            <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
-        </select>
-        
-        <button id="toggle-roads">Toggle MVUM Roads</button>
-        <button id="toggle-boundary">Toggle Forest Boundary</button>
-        <button id="btn-screenshot" style="background: #2e7d32; color: white; border: none; margin-top: 10px;">Save Screenshot & Metadata</button>
-        
-        <div id="snapshot-container">
-            <button id="btn-fetch-dates" style="background: #0d47a1; color: white; border: none;">Load Available Dates</button>
-            <select id="date-select"></select>
-            <button id="btn-view-snapshot" style="background: #2e7d32; color: white; border: none; display: none;">View Selected Date</button>
-        </div>
-    </div>
-    
     <div id="map-wrapper">
-        <div id="nav-panel">
-            <div id="close-btn">&times;</div>
-            <div id="nav-content"></div>
+        <div id="drawer-toggle">☰ Menu</div>
+        
+        <div id="drawer-panel">
+            <div id="close-drawer">&times;</div>
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
+                <button class="tab-btn" onclick="openTab('nav')">Navigation</button>
+            </div>
+            
+            <div id="tools-pane" class="tab-content">
+                <div class="instructions">Select a forest to get started.</div>
+                <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
+                <select id="base-selector">
+                    <option value="streets-v2" selected>Standard (Streets)</option>
+                    <option value="outdoor-v2">Outdoor</option>
+                    <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
+                </select>
+                <button id="toggle-roads">Toggle MVUM Roads</button>
+                <button id="toggle-boundary">Toggle Forest Boundary</button>
+                <button id="btn-screenshot" style="background: #2e7d32; color: white;">Save Screenshot</button>
+                <hr>
+                <button id="btn-fetch-dates" style="background: #0d47a1; color: white;">Load Satellite Dates</button>
+                <select id="date-select" style="display:none"></select>
+                <button id="btn-view-snapshot" style="background: #2e7d32; color: white; display: none;">View Selected Date</button>
+            </div>
+
+            <div id="nav-pane" class="tab-content" style="display:none;">
+                <div id="nav-content"><em>Select a road on the map to see directions.</em></div>
+            </div>
         </div>
+        
         <div id="map"></div>
     </div>
 </div>
 
 <div id="image-modal" onclick="this.style.display='none'" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; cursor:pointer;">
-    <span style="position:absolute; top:20px; right:30px; color:white; font-size:40px; font-weight:bold; cursor:pointer;">&times;</span>
-    <img id="modal-img" src="" style="max-width:90%; max-height:85%; border:4px solid white; box-shadow: 0 0 20px rgba(0,0,0,0.5); cursor:default;">
-    <div style="position:absolute; bottom:20px; color:white; font-size:14px; pointer-events:none;">Click anywhere or press Esc to close</div>
+    <img id="modal-img" style="max-width:90%; max-height:85%; border:4px solid white;">
 </div>
 
 <script>
-    let mapTilerKey = null;
-    let sentinelInstanceId = null;
-    let sentinelLayerId = null;
+    let mapTilerKey, sentinelInstanceId, sentinelLayerId, map;
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    let roadsVisible = false;
-    let boundaryVisible = false; 
-    let currentRoadFile = null;
-    let currentBoundaryFile = null;
-    let currentBounds = null;
-    let currentForestName = "";
-    let fullRouteGeometry = null;
-    let map;
+    let roadsVisible = false, boundaryVisible = false, currentRoadFile = null, currentBoundaryFile = null, currentBounds = null, currentForestName = "";
+    let fullRouteGeometry = null, lastRouteSteps = null, activeHighlightIndex = null;
 
-    let activeRoadCoords = null;
-    let activeRoadName = "";
-    let lastRouteSteps = null; 
-    let activeHighlightIndex = null;
+    // --- Drawer Logic ---
+    function openTab(tab) {
+        document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
+        document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
+        document.getElementById('drawer-panel').style.display = 'block';
+    }
 
+    // --- Utilities ---
     async function getAccessToken() {
-        try {
-            const response = await fetch('/api/get-token');
-            if (!response.ok) throw new Error('Auth failed');
-            const data = await response.json();
-            return data.access_token;
-        } catch (e) { return null; }
+        try { const r = await fetch('/api/get-token'); const d = await r.json(); return d.access_token; } 
+        catch (e) { return null; }
     }
 
     async function fetchAvailableDates() {
@@ -119,7 +111,6 @@
 
         const token = await getAccessToken();
         const center = map.getCenter();
-        
         try {
             const response = await fetch('https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search', {
                 method: 'POST',
@@ -132,21 +123,10 @@
                 })
             });
             const data = await response.json();
-            
-            if (!data.features || data.features.length === 0) {
-                dateSelect.innerHTML = '<option>No imagery found</option>';
-                return;
-            }
-
-            const sortedFeatures = data.features.sort((a, b) => new Date(b.properties.datetime) - new Date(a.properties.datetime));
             dateSelect.innerHTML = '';
-            const dates = [...new Set(sortedFeatures.map(f => f.properties.datetime.split('T')[0]))];
-            
-            dates.forEach(d => {
-                const opt = document.createElement('option');
-                opt.value = d; opt.innerText = d;
-                dateSelect.appendChild(opt);
-            });
+            if (!data.features || data.features.length === 0) return dateSelect.innerHTML = '<option>No imagery found</option>';
+            const dates = [...new Set(data.features.map(f => f.properties.datetime.split('T')[0]))];
+            dates.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.innerText = d; dateSelect.appendChild(opt); });
             viewBtn.style.display = 'block';
         } catch (e) { dateSelect.innerHTML = '<option>Error loading dates</option>'; }
     }
@@ -154,106 +134,29 @@
     async function loadSatellitePreview() {
         const selectedDate = document.getElementById('date-select').value;
         const modal = document.getElementById('image-modal');
-        const modalImg = document.getElementById('modal-img');
         const token = await getAccessToken();
-        
         const bounds = map.getBounds();
         const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
-
-        // Construct WMS URL
         const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=1024&HEIGHT=1024&FORMAT=image/png&TRANSPARENT=true&BBOX=${bbox}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
-
-        // Set src and display modal
-        modalImg.src = wmsUrl;
+        document.getElementById('modal-img').src = wmsUrl;
         modal.style.display = 'flex';
     }
 
-    function updateMapInteractions() {
-        const base = document.getElementById('base-selector').value;
-        const is3D = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
-        if (is3D) { map.dragRotate.enable(); map.touchZoomRotate.enableRotation(); } 
-        else { map.dragRotate.disable(); map.touchZoomRotate.disableRotation(); map.setPitch(0); map.setBearing(0); }
+    async function captureView() {
+        const imgData = map.getCanvas().toDataURL('image/png');
+        const link = document.createElement('a'); link.href = imgData; link.download = `view-${Date.now()}.png`; link.click();
+        const metadata = { forest: currentForestName, bounds: map.getBounds().toArray(), center: map.getCenter(), zoom: map.getZoom(), timestamp: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
+        const metaLink = document.createElement('a'); metaLink.href = URL.createObjectURL(blob); metaLink.download = `meta-${Date.now()}.json`; metaLink.click();
     }
 
+    // --- Map Operations ---
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
-        const isSatellite = (base === '019e74c9-570e-7893-90e7-a01ec7d07286');
-        if (isSatellite) {
+        if (base === '019e74c9-570e-7893-90e7-a01ec7d07286') {
             if (!map.getSource('terrain')) map.addSource('terrain', { type: 'raster-dem', url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}` });
             map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
         } else { map.setTerrain(null); }
-    }
-
-    async function initApp() {
-        const config = await fetch('/api/get-config').then(r => r.json());
-        mapTilerKey = config.mapTilerKey;
-        sentinelInstanceId = config.sentinelInstanceId;
-        sentinelLayerId = config.sentinelLayerId;
-
-        map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
-        
-        map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
-        map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-        document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
-        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
-        
-        document.getElementById('btn-screenshot').addEventListener('click', captureView);
-        document.getElementById('close-btn').addEventListener('click', closeNav);
-        document.getElementById('base-selector').addEventListener('change', updateStyle);
-        document.getElementById('forest-select').addEventListener('change', handleForestSelect);
-        document.getElementById('toggle-roads').addEventListener('click', toggleRoads);
-        document.getElementById('toggle-boundary').addEventListener('click', toggleBoundary);
-        
-        map.on('click', 'road-core', handleRoadClick);
-        map.on('mouseenter', 'road-core', () => map.getCanvas().style.cursor = 'pointer');
-        map.on('mouseleave', 'road-core', () => map.getCanvas().style.cursor = '');
-        map.on('idle', () => { if (roadsVisible && currentRoadFile && !map.getSource('roads')) syncRoads(); if (currentBoundaryFile && !map.getSource('boundary-source')) syncBoundary(); });
-        
-        map.on('load', () => { ensureHighlightLayer(); updateTerrain(); updateMapInteractions(); });
-    }
-
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            document.getElementById('image-modal').style.display = 'none';
-        }
-    });
-
-    async function captureView() {
-        const imgData = map.getCanvas().toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = imgData;
-        link.download = `forest-view-${Date.now()}.png`;
-        link.click();
-
-        const metadata = { 
-            forest: currentForestName, 
-            bounds: map.getBounds().toArray(), 
-            center: map.getCenter(), 
-            zoom: map.getZoom(), 
-            bearing: map.getBearing(),
-            pitch: map.getPitch(),
-            timestamp: new Date().toISOString() 
-        };
-        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type: 'application/json'});
-        const metaLink = document.createElement('a');
-        metaLink.href = URL.createObjectURL(blob);
-        metaLink.download = `forest-meta-${Date.now()}.json`;
-        metaLink.click();
-    }
-
-    function closeNav() {
-        document.getElementById('nav-panel').style.display = 'none';
-        activeRoadCoords = null; activeRoadName = ""; lastRouteSteps = null; activeHighlightIndex = null;
-        if (map.getSource('route')) map.getSource('route').setData({type: 'FeatureCollection', features: []});
-        if (map.getSource('highlight-route')) map.getSource('highlight-route').setData({type: 'Feature', geometry: {type: 'LineString', coordinates: []}});
-    }
-
-    function ensureHighlightLayer() {
-        if (!map.getSource('highlight-route')) {
-            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
-            map.addLayer({ id: 'highlight-route', type: 'line', source: 'highlight-route', paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 } });
-        }
     }
 
     function syncRoads() {
@@ -264,118 +167,106 @@
             map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentRoadFile}` });
             map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
             map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
-            if (map.getLayer('route-line')) { map.moveLayer('route-line'); map.moveLayer('route-arrows'); }
         }
     }
 
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
-        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
-        if (map.getSource('label-source')) map.removeSource('label-source');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
-        if (currentBoundaryFile && currentBoundaryFile !== "undefined") {
+        if (currentBoundaryFile && currentBoundaryFile !== "undefined" && boundaryVisible) {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
-            if (boundaryVisible) map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
-        }
-        syncLabel();
-    }
-
-    function syncLabel() {
-        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
-        if (map.getSource('label-source')) map.removeSource('label-source');
-        if (currentBounds && currentForestName) {
-            const center = [(currentBounds[0] + currentBounds[2]) / 2, (currentBounds[1] + currentBounds[3]) / 2];
-            map.addSource('label-source', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Point', coordinates: center }, properties: { name: currentForestName } } });
-            map.addLayer({ "id": "boundary-label", "type": "symbol", "source": "label-source", "layout": { "text-field": ["get", "name"], "text-size": ["interpolate", ["linear"], ["zoom"], 3, 10, 10, 24], "text-font": ["Open Sans Bold"], "text-anchor": "center", "text-allow-overlap": true }, "paint": { "text-color": "#000", "text-halo-color": "#ffffff", "text-halo-width": 2 } });
+            map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
         }
     }
 
-    function highlightSegment(index) {
-        if (!lastRouteSteps) return;
-        activeHighlightIndex = index;
-        const step = lastRouteSteps[index];
-        const segmentCoords = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
-        map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: segmentCoords } });
-        const bbox = turf.bbox({type: 'LineString', coordinates: segmentCoords});
-        map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
+    function updateStyle() {
+        const val = document.getElementById('base-selector').value;
+        map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
+        map.once('idle', () => { updateTerrain(); syncRoads(); syncBoundary(); });
     }
 
-    function bindDirectionsClicks(steps) {
-        document.querySelectorAll('.dir-item').forEach(item => {
-            item.onclick = (e) => { e.stopPropagation(); highlightSegment(parseInt(item.dataset.index)); };
-        });
+    function ensureHighlightLayer() {
+        if (!map.getSource('highlight-route')) {
+            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
+            map.addLayer({ id: 'highlight-route', type: 'line', source: 'highlight-route', paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 } });
+        }
     }
 
-    function updateNavPanel(coords, name, steps = null) {
-        activeRoadCoords = coords; activeRoadName = name;
-        const panel = document.getElementById('nav-panel');
-        panel.style.display = 'block';
+    // --- Navigation Logic ---
+    async function handleRoadClick(e) {
+        openTab('nav');
+        const coords = e.lngLat;
+        const name = e.features[0].properties.NAME || 'N/A';
         document.getElementById('nav-content').innerHTML = `
             <strong>Road:</strong> ${name}<br>
             <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
             <button id="btn-get-route">Get Directions</button>
             <div id="route-info"></div>
-            <p class="route-warning"><strong>⚠️ Warning:</strong> Verify closures with USFS MVUM.</p>
+            <p class="route-warning"><strong>⚠️ Verify closures with USFS MVUM.</strong></p>
         `;
-        if (steps) renderRouteInfo(steps);
         document.getElementById('btn-get-route').onclick = async () => {
-            const fromText = document.getElementById('from-location').value;
-            if (!fromText) return alert("Enter a starting location");
-            try {
-                const geo = await fetch(`/api/geocode?q=${encodeURIComponent(fromText)}`).then(r => r.json());
-                const routeRes = await fetch('/api/route', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: geo.features[0].center, end: [coords.lng, coords.lat] }) });
-                const data = await routeRes.json();
-                fullRouteGeometry = data.features[0].geometry; lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
-                renderRouteInfo(lastRouteSteps); renderRoute(fullRouteGeometry);
-            } catch (e) { alert("Could not calculate route"); }
+            const geo = await fetch(`/api/geocode?q=${encodeURIComponent(document.getElementById('from-location').value)}`).then(r => r.json());
+            const routeRes = await fetch('/api/route', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ start: geo.features[0].center, end: [coords.lng, coords.lat] }) });
+            const data = await routeRes.json();
+            fullRouteGeometry = data.features[0].geometry;
+            lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
+            renderRouteInfo(lastRouteSteps); renderRoute(fullRouteGeometry);
         };
     }
 
     function processDirections(steps) {
-        if (!steps || !Array.isArray(steps)) return [];
-        return steps.map((step) => ({
-            ...step,
-            displayLabel: (step.name && step.name !== "-" && step.name.toLowerCase() !== "the road" && !step.instruction.includes(step.name)) ? `${step.instruction} (${step.name})` : step.instruction,
-            miles: (step.distance / 1609.34).toFixed(1),
-            wayPoints: step.way_points
-        }));
+        return steps.map(s => ({ ...s, displayLabel: (s.name && s.name !== "-" && !s.instruction.includes(s.name)) ? `${s.instruction} (${s.name})` : s.instruction, miles: (s.distance / 1609.34).toFixed(1), wayPoints: s.way_points }));
     }
 
     function renderRouteInfo(steps) {
-        const infoDiv = document.getElementById('route-info');
-        if (!infoDiv) return;
-        infoDiv.innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" data-index="${idx}">**${s.displayLabel}** (${s.miles} mi)</div>`).join('')}</div>`;
-        bindDirectionsClicks(steps);
+        document.getElementById('route-info').innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" onclick="highlightSegment(${idx})">**${s.displayLabel}** (${s.miles} mi)</div>`).join('')}</div>`;
     }
 
-    async function handleRoadClick(e) { updateNavPanel(e.lngLat, e.features[0].properties.NAME || 'N/A'); }
+    function highlightSegment(index) {
+        const step = lastRouteSteps[index];
+        const seg = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
+        map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: seg } });
+        const bbox = turf.bbox({type: 'LineString', coordinates: seg});
+        map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
+    }
 
     function renderRoute(geometry) {
         if (map.getSource('route')) map.getSource('route').setData(geometry);
         else {
             map.addSource('route', { type: 'geojson', data: geometry });
             map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
-            map.addLayer({ id: 'route-arrows', type: 'symbol', source: 'route', layout: { 'symbol-placement': 'line', 'symbol-spacing': 100, 'text-field': '▶', 'text-size': 16 }, paint: { 'text-color': '#1976d2' } });
         }
     }
 
-    async function updateStyle(e) {
-        const val = e.target.value;
-        map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
-        map.once('idle', () => { updateTerrain(); updateMapInteractions(); ensureHighlightLayer(); if (fullRouteGeometry) renderRoute(fullRouteGeometry); if (roadsVisible) syncRoads(); syncBoundary(); });
-    }
+    // --- Init ---
+    async function initApp() {
+        const config = await fetch('/api/get-config').then(r => r.json());
+        mapTilerKey = config.mapTilerKey; sentinelInstanceId = config.sentinelInstanceId; sentinelLayerId = config.sentinelLayerId;
 
-    async function handleForestSelect(e) {
-        const data = JSON.parse(e.target.value);
-        const opt = e.target.selectedOptions[0];
-        currentBounds = data; currentForestName = opt.text;
-        currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile || "undefined";
-        map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
-        closeNav(); syncRoads(); syncBoundary();
-    }
+        map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
+        map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    function toggleRoads() { if (!currentRoadFile) return alert("Select a forest first"); roadsVisible = !roadsVisible; if (!roadsVisible) closeNav(); syncRoads(); }
-    function toggleBoundary() { if (!currentBoundaryFile || currentBoundaryFile === "undefined") return alert("Select a forest first"); boundaryVisible = !boundaryVisible; syncBoundary(); }
+        document.getElementById('drawer-toggle').onclick = () => document.getElementById('drawer-panel').style.display = 'block';
+        document.getElementById('close-drawer').onclick = () => document.getElementById('drawer-panel').style.display = 'none';
+        document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
+        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
+        document.getElementById('btn-screenshot').addEventListener('click', captureView);
+        document.getElementById('base-selector').addEventListener('change', updateStyle);
+        document.getElementById('forest-select').addEventListener('change', (e) => {
+            const data = JSON.parse(e.target.value);
+            const opt = e.target.selectedOptions[0];
+            currentBounds = data; currentForestName = opt.text;
+            currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile;
+            map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
+            syncRoads(); syncBoundary();
+        });
+        document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; syncRoads(); });
+        document.getElementById('toggle-boundary').addEventListener('click', () => { boundaryVisible = !boundaryVisible; syncBoundary(); });
+        
+        map.on('click', 'road-core', handleRoadClick);
+        map.on('load', () => { ensureHighlightLayer(); });
+    }
 
     fetch('forests.json').then(r => r.json()).then(data => {
         const select = document.getElementById('forest-select');
