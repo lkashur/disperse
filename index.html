@@ -15,8 +15,8 @@
         #main-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
         
         /* Map Layout */
-        /* overflow: visible allows the handle to sit on the edge even when the drawer is hidden */
-        #map-wrapper { width: 50%; height: 600px; position: relative; border: 1px solid #999; overflow: visible; background: #fff; transition: width 0.3s ease; }
+        /* Removed transition: width to prevent fighting the Fullscreen API layout shift */
+        #map-wrapper { width: 50%; height: 600px; position: relative; border: 1px solid #999; overflow: visible; background: #fff; }
         #map { width: 100%; height: 100%; }
 
         /* Drawer Styles */
@@ -24,7 +24,7 @@
             width: 300px; height: 100%; background: white; 
             position: absolute; top: 0; left: 0; z-index: 20; 
             box-shadow: 2px 0 10px rgba(0,0,0,0.3); overflow-y: auto; 
-            transition: transform 0.3s ease; transform: translateX(0);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(0);
         }
         
         /* When map-wrapper has 'menu-closed', slide drawer out */
@@ -38,7 +38,7 @@
             border-radius: 0 8px 8px 0; cursor: pointer; 
             display: flex; align-items: center; justify-content: center;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1); font-size: 16px; color: #555;
-            transition: left 0.3s ease;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         /* When closed, move handle to the left edge */
         #map-wrapper.menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
@@ -113,9 +113,7 @@
 
     // --- Drawer Logic ---
     function toggleDrawer() {
-        // Toggle the class on the wrapper to handle animations via CSS
         document.getElementById('map-wrapper').classList.toggle('menu-closed');
-        // Resize map after animation completes
         setTimeout(() => map.resize(), 300);
     }
 
@@ -124,7 +122,6 @@
         document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
         
-        // Ensure menu is open if switching tabs
         document.getElementById('map-wrapper').classList.remove('menu-closed');
         map.resize();
     }
@@ -210,10 +207,21 @@
 
     function syncBoundary() {
         if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
+        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
         if (map.getSource('boundary-source')) map.removeSource('boundary-source');
         if (currentBoundaryFile && currentBoundaryFile !== "undefined" && boundaryVisible) {
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
+            // Fill
             map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
+            // Label at centroid
+            map.addLayer({
+                "id": "boundary-label",
+                "type": "symbol",
+                "source": "boundary-source",
+                "source-layer": "forest_boundary",
+                "layout": { "text-field": ["get", "NAME"], "text-size": 16, "text-anchor": "center" },
+                "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 }
+            });
         }
     }
 
@@ -284,6 +292,9 @@
         map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        
+        // Ensure map resizes smoothly on fullscreen transitions
+        map.on('fullscreen', () => setTimeout(() => map.resize(), 100));
 
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
