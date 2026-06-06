@@ -23,12 +23,6 @@
         #map { flex-grow: 1; height: 100%; }
         
         #snapshot-container { margin-top: 15px; padding-top: 15px; border-top: 2px solid #ddd; width: 100%; }
-        
-        #snapshot-wrapper { width: 100%; height: 250px; overflow: hidden; margin-top: 10px; border: 1px solid #ccc; display: none; position: relative; }
-        /* Added zoom-in cursor so user knows it's interactive */
-        #snapshot-map { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
-        
-        #snapshot-date { font-size: 11px; color: #666; font-style: italic; margin-top: 5px; text-align: center; }
 
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 5px; display: block; box-sizing: border-box; }
         #date-select { display: none; margin-bottom: 10px; background: #fff; border: 1px solid #ccc; }
@@ -69,13 +63,6 @@
             <button id="btn-fetch-dates" style="background: #0d47a1; color: white; border: none;">Load Available Dates</button>
             <select id="date-select"></select>
             <button id="btn-view-snapshot" style="background: #2e7d32; color: white; border: none; display: none;">View Selected Date</button>
-            
-            <div id="snapshot-wrapper">
-                <img id="snapshot-map" src="" alt="Satellite Preview">
-            </div>
-            
-            <div id="snapshot-date"></div>
-            <div style="font-size: 9px; color: #888; text-align: center; margin-top: 5px;">Contains modified Copernicus Sentinel data</div>
         </div>
     </div>
     
@@ -166,21 +153,19 @@
 
     async function loadSatellitePreview() {
         const selectedDate = document.getElementById('date-select').value;
-        const dateEl = document.getElementById('snapshot-date');
-        const imgEl = document.getElementById('snapshot-map');
-        const wrapperEl = document.getElementById('snapshot-wrapper');
+        const modal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('modal-img');
         const token = await getAccessToken();
         
-        dateEl.innerText = "Loading preview...";
-        wrapperEl.style.display = 'block';
-
         const bounds = map.getBounds();
         const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
 
-        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&BBOX=${bbox}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
+        // Construct WMS URL
+        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=1024&HEIGHT=1024&FORMAT=image/png&TRANSPARENT=true&BBOX=${bbox}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
 
-        imgEl.src = wmsUrl;
-        dateEl.innerText = `Preview: ${selectedDate}`;
+        // Set src and display modal
+        modalImg.src = wmsUrl;
+        modal.style.display = 'flex';
     }
 
     function updateMapInteractions() {
@@ -210,14 +195,6 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        // Modal triggers
-        document.getElementById('snapshot-map').addEventListener('click', function() {
-            const modal = document.getElementById('image-modal');
-            const modalImg = document.getElementById('modal-img');
-            modalImg.src = this.src;
-            modal.style.display = 'flex';
-        });
-
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
         
@@ -236,7 +213,6 @@
         map.on('load', () => { ensureHighlightLayer(); updateTerrain(); updateMapInteractions(); });
     }
 
-    // Modal Keyboard Esc Handler
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
             document.getElementById('image-modal').style.display = 'none';
