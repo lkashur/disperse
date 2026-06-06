@@ -11,15 +11,21 @@
         * { box-sizing: border-box; }
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; background: #f4f4f4; }
         #header { padding: 10px; text-align: center; height: 60px; }
-        #main-container { flex-grow: 1; display: flex; width: 95%; max-width: 1400px; margin: 0 auto 20px; }
         
-        #map-wrapper { flex-grow: 1; position: relative; border: 1px solid #999; overflow: hidden; background: #fff; }
+        #main-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        
+        /* Map starts at 50% centered */
+        #map-wrapper { width: 50%; height: 600px; position: relative; border: 1px solid #999; overflow: hidden; background: #fff; transition: width 0.3s ease; }
         #map { width: 100%; height: 100%; }
 
         /* Drawer Styles */
-        #drawer-toggle { position: absolute; top: 10px; left: 10px; z-index: 10; background: white; padding: 10px 15px; cursor: pointer; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.3); font-weight: bold; }
-        #drawer-panel { width: 300px; height: 100%; background: white; position: absolute; top: 0; left: 0; z-index: 20; display: none; box-shadow: 2px 0 10px rgba(0,0,0,0.3); overflow-y: auto; }
+        #drawer-panel { width: 300px; height: 100%; background: white; position: absolute; top: 0; left: 0; z-index: 20; box-shadow: 2px 0 10px rgba(0,0,0,0.3); overflow-y: auto; transition: transform 0.3s ease; }
+        #drawer-panel.hidden { transform: translateX(-100%); }
         
+        /* Drawer Handle */
+        #drawer-toggle { position: absolute; top: 10px; left: 10px; z-index: 21; background: white; padding: 10px 15px; cursor: pointer; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.3); font-weight: bold; display: none; }
+        #drawer-panel.hidden ~ #drawer-toggle { display: block; }
+
         .tab-bar { display: flex; border-bottom: 1px solid #ccc; background: #f8f8f8; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: #fff; border-bottom: 2px solid #2e7d32; }
@@ -42,17 +48,15 @@
 
 <div id="main-container">
     <div id="map-wrapper">
-        <div id="drawer-toggle">☰ Menu</div>
-        
         <div id="drawer-panel">
-            <div id="close-drawer">&times;</div>
+            <div id="close-drawer" onclick="toggleDrawer()">&times;</div>
             <div class="tab-bar">
                 <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
                 <button class="tab-btn" onclick="openTab('nav')">Navigation</button>
             </div>
             
             <div id="tools-pane" class="tab-content">
-                <div class="instructions">Select a forest to get started.</div>
+                <div class="instructions">Select a forest to begin.</div>
                 <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
                 <select id="base-selector">
                     <option value="streets-v2" selected>Standard (Streets)</option>
@@ -73,6 +77,8 @@
             </div>
         </div>
         
+        <div id="drawer-toggle" onclick="toggleDrawer()">☰ Menu</div>
+        
         <div id="map"></div>
     </div>
 </div>
@@ -90,11 +96,24 @@
     let fullRouteGeometry = null, lastRouteSteps = null, activeHighlightIndex = null;
 
     // --- Drawer Logic ---
+    function toggleDrawer() {
+        const panel = document.getElementById('drawer-panel');
+        panel.classList.toggle('hidden');
+        setTimeout(() => map.resize(), 300); // Resize map after animation
+    }
+
     function openTab(tab) {
         document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
         document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
-        document.getElementById('drawer-panel').style.display = 'block';
+        document.getElementById('drawer-panel').classList.remove('hidden');
+        map.resize();
+    }
+
+    // --- Expansion Logic ---
+    function expandMap() {
+        document.getElementById('map-wrapper').style.width = '100%';
+        map.resize();
     }
 
     // --- Utilities ---
@@ -247,12 +266,11 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-        document.getElementById('drawer-toggle').onclick = () => document.getElementById('drawer-panel').style.display = 'block';
-        document.getElementById('close-drawer').onclick = () => document.getElementById('drawer-panel').style.display = 'none';
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
         document.getElementById('base-selector').addEventListener('change', updateStyle);
+        
         document.getElementById('forest-select').addEventListener('change', (e) => {
             const data = JSON.parse(e.target.value);
             const opt = e.target.selectedOptions[0];
@@ -260,7 +278,9 @@
             currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile;
             map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
             syncRoads(); syncBoundary();
+            expandMap();
         });
+        
         document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; syncRoads(); });
         document.getElementById('toggle-boundary').addEventListener('click', () => { boundaryVisible = !boundaryVisible; syncBoundary(); });
         
