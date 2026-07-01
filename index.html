@@ -55,13 +55,14 @@
             width: 60px; height: 60px; border-radius: 4px; margin-bottom: 5px;
             border: 2px solid transparent; transition: border 0.2s;
             display: flex; align-items: center; justify-content: center; overflow: hidden;
+            background: #fff;
         }
         .basemap-option:hover .thumb { border-color: #2e7d32; }
         
-        /* Thumb Styles */
-        .thumb.streets { background: #fdfdfd; border: 1px solid #ddd; stroke: #999; fill: #eee; }
-        .thumb.outdoor { background: #e8f5e9; border: 1px solid #a5d6a7; stroke: #2e7d32; fill: #c8e6c9; }
-        .thumb.satellite { background: #263238; border: 1px solid #000; stroke: #fff; fill: #455a64; }
+        /* Thumb Styles - The SVG colors are controlled here */
+        .thumb.streets { stroke: #666; fill: #ddd; }
+        .thumb.outdoor { stroke: #2e7d32; fill: #a5d6a7; }
+        .thumb.satellite { stroke: #455a64; fill: #263238; }
 
         /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
@@ -102,13 +103,13 @@
         </button>
         <div class="basemap-panel" id="basemap-panel">
             <div class="basemap-option" onclick="changeStyle('streets-v2')">
-                <div class="thumb streets"><svg viewBox="0 0 100 60"><path d="M10,10 L90,10 L90,50 L10,50 Z" stroke-width="2"/></svg></div>Streets
+                <div class="thumb streets"><svg viewBox="0 0 100 60"><path d="M 12,20 L 25,10 L 85,15 L 90,35 L 75,50 L 30,50 L 12,35 Z" stroke-width="3"/></svg></div>Streets
             </div>
             <div class="basemap-option" onclick="changeStyle('outdoor-v2')">
-                <div class="thumb outdoor"><svg viewBox="0 0 100 60"><path d="M10,10 L90,10 L90,50 L10,50 Z" stroke-width="2"/></svg></div>Outdoor
+                <div class="thumb outdoor"><svg viewBox="0 0 100 60"><path d="M 12,20 L 25,10 L 85,15 L 90,35 L 75,50 L 30,50 L 12,35 Z" stroke-width="3"/></svg></div>Outdoor
             </div>
             <div class="basemap-option" onclick="changeStyle('019e74c9-570e-7893-90e7-a01ec7d07286')">
-                <div class="thumb satellite"><svg viewBox="0 0 100 60"><path d="M10,10 L90,10 L90,50 L10,50 Z" stroke-width="2"/></svg></div>Satellite
+                <div class="thumb satellite"><svg viewBox="0 0 100 60"><path d="M 12,20 L 25,10 L 85,15 L 90,35 L 75,50 L 30,50 L 12,35 Z" stroke-width="3"/></svg></div>Satellite
             </div>
         </div>
     </div>
