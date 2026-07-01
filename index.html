@@ -12,19 +12,24 @@
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: sans-serif; }
         
         #map-wrapper { width: 100vw; height: 100vh; position: relative; }
-        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-
+        
+        /* Layout Offsets */
         #header { 
-            position: absolute; top: 10px; left: 50px; right: 50px; z-index: 10;
-            padding: 10px; text-align: center; background: rgba(255, 255, 255, 0.8);
-            border-radius: 8px; pointer-events: none;
+            position: absolute; top: 0; left: 0; right: 0; height: 50px; 
+            z-index: 30; background: #2e7d32; color: white;
+            display: flex; align-items: center; padding-left: 20px; font-size: 18px;
         }
-
         #drawer-panel { 
-            position: absolute; top: 0; left: 0; bottom: 0; width: 300px; 
+            position: absolute; top: 50px; left: 0; bottom: 0; width: 300px; 
             background: white; z-index: 20; box-shadow: 2px 0 10px rgba(0,0,0,0.1); 
             overflow-y: auto; transition: transform 0.3s ease;
         }
+        #map { position: absolute; top: 50px; left: 0; width: 100%; bottom: 0; }
+
+        /* Fullscreen Overrides: Collapse header, extend map/drawer to top */
+        #map-wrapper:fullscreen #header { display: none; }
+        #map-wrapper:fullscreen #drawer-panel { top: 0; }
+        #map-wrapper:fullscreen #map { top: 0; }
 
         #drawer-handle { 
             display: flex; position: absolute; top: 100px; left: 300px; z-index: 25; 
@@ -51,7 +56,7 @@
 <body>
 
 <div id="map-wrapper">
-    <div id="header"><h1>National Forest Explorer</h1></div>
+    <div id="header">Disperse: National Forest Explorer</div>
     
     <div id="drawer-panel">
         <div class="tab-bar">
@@ -107,7 +112,6 @@
         document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
         
-        // Ensure menu is open if switching tabs
         document.getElementById('map-wrapper').classList.remove('menu-closed');
         map.resize();
     }
