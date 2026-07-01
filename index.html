@@ -26,14 +26,15 @@
         }
         #map { position: absolute; top: 50px; left: 0; width: 100%; bottom: 0; }
 
-        /* --- Google Maps Style Layer Control (Top Right) --- */
+        /* --- Basemap Control (Native Control Style) --- */
         #basemap-control {
-            position: absolute; top: 130px; right: 10px; z-index: 100;
+            display: flex; flex-direction: column; align-items: flex-end;
+            position: relative;
         }
         
         /* The FAB (Trigger Button) */
         .map-fab {
-            width: 40px; height: 40px; background: white; border: none;
+            width: 30px; height: 30px; background: white; border: none;
             border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             cursor: pointer; display: flex; align-items: center; justify-content: center;
             padding: 0; outline: none; position: relative;
@@ -41,21 +42,20 @@
         
         /* Tooltip */
         .map-fab .tooltip {
-            position: absolute; right: 50px; top: 5px; background: #333; color: white;
-            padding: 4px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap;
+            position: absolute; right: 40px; top: 0px; background: #333; color: white;
+            padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;
             opacity: 0; pointer-events: none; transition: opacity 0.2s;
         }
         .map-fab:hover .tooltip { opacity: 1; }
 
-        /* Logic for expansion */
+        /* The Grid Panel */
+        .basemap-panel {
+            display: none; position: absolute; right: 0; top: 35px;
+            background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            padding: 10px; gap: 10px; width: 240px; z-index: 1000;
+        }
         .map-fab:hover + .basemap-panel, .basemap-panel:hover { display: flex; }
 
-        /* The Grid Panel (Drops down) */
-        .basemap-panel {
-            display: none; position: absolute; top: 45px; right: 0;
-            background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            padding: 10px; gap: 10px; width: 240px;
-        }
         .basemap-option {
             flex: 1; cursor: pointer; text-align: center; font-size: 11px;
         }
@@ -102,10 +102,10 @@
 <div id="map-wrapper">
     <div id="header"><strong>Disperse</strong> National Forest Explorer</div>
     
-    <div id="basemap-control">
+    <div id="basemap-control" class="maplibregl-ctrl maplibregl-ctrl-group">
         <button class="map-fab">
             <span class="tooltip">Base Map</span>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4-8 4-8-4 8-4zM2 12l8 4 8-4M2 17l8 4 8-4"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4-8 4-8-4 8-4zM2 12l8 4 8-4M2 17l8 4 8-4"/></svg>
         </button>
         <div class="basemap-panel">
             <div class="basemap-option" onclick="changeStyle('streets-v2')">
@@ -154,6 +154,17 @@
     let mapTilerKey, sentinelInstanceId, sentinelLayerId, map;
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
+
+    // Custom Map Control Class
+    class BasemapControl {
+        onAdd(map) {
+            this.container = document.getElementById('basemap-control');
+            return this.container;
+        }
+        onRemove() {
+            this.container.parentNode.removeChild(this.container);
+        }
+    }
 
     let roadsVisible = false, boundaryVisible = false, currentRoadFile = null, currentBoundaryFile = null, currentBounds = null, currentForestName = "";
     let fullRouteGeometry = null, lastRouteSteps = null;
@@ -310,8 +321,13 @@
         mapTilerKey = config.mapTilerKey; sentinelInstanceId = config.sentinelInstanceId; sentinelLayerId = config.sentinelLayerId;
 
         map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
+        
+        // Add native controls
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        
+        // Add custom Basemap control AFTER navigation control to place it below
+        map.addControl(new BasemapControl(), 'top-right');
         
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
