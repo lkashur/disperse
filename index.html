@@ -26,13 +26,17 @@
         }
         #map { position: absolute; top: 50px; left: 0; width: 100%; bottom: 0; }
 
-        /* Floating Style Switcher (Under Navigation) */
+        /* Google Maps Style Layer Control */
         #basemap-control {
             position: absolute; top: 180px; right: 10px; z-index: 10;
-            background: white; padding: 5px; border-radius: 4px; 
-            box-shadow: 0 0 5px rgba(0,0,0,0.3);
         }
-        #basemap-control select { width: 120px; font-size: 12px; }
+        .basemap-menu {
+            display: none; position: absolute; right: 0; top: 0; width: 120px;
+            background: white; border-radius: 4px; box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+        #basemap-control:hover .basemap-menu { display: block; }
+        .basemap-option { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .basemap-option:hover { background: #f0f0f0; }
 
         /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
@@ -64,14 +68,15 @@
 <body>
 
 <div id="map-wrapper">
-    <div id="header"><strong>Disperse</strong>: National Forest Explorer</div>
+    <div id="header"><strong>Disperse</strong> National Forest Explorer</div>
     
-    <div id="basemap-control">
-        <select id="base-selector">
-            <option value="streets-v2" selected>Streets</option>
-            <option value="outdoor-v2">Outdoor</option>
-            <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite</option>
-        </select>
+    <div id="basemap-control" class="maplibregl-ctrl maplibregl-ctrl-group">
+        <button style="width: 30px; height: 30px; font-weight: bold;">Layers</button>
+        <div class="basemap-menu">
+            <div class="basemap-option" onclick="changeStyle('streets-v2')">Streets</div>
+            <div class="basemap-option" onclick="changeStyle('outdoor-v2')">Outdoor</div>
+            <div class="basemap-option" onclick="changeStyle('019e74c9-570e-7893-90e7-a01ec7d07286')">Satellite</div>
+        </div>
     </div>
     
     <div id="drawer-panel">
@@ -121,9 +126,13 @@
         document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
         document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
-        
         document.getElementById('map-wrapper').classList.remove('menu-closed');
         map.resize();
+    }
+
+    function changeStyle(val) {
+        map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
+        map.once('idle', () => { updateTerrain(val); syncRoads(); syncBoundary(); });
     }
 
     async function getAccessToken() {
@@ -170,9 +179,8 @@
         modal.style.display = 'flex';
     }
 
-    function updateTerrain() {
-        const base = document.getElementById('base-selector').value;
-        if (base === '019e74c9-570e-7893-90e7-a01ec7d07286') {
+    function updateTerrain(styleVal) {
+        if (styleVal === '019e74c9-570e-7893-90e7-a01ec7d07286') {
             if (!map.getSource('terrain')) map.addSource('terrain', { type: 'raster-dem', url: `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${mapTilerKey}` });
             map.setTerrain({ source: 'terrain', exaggeration: 1.5 });
         } else { map.setTerrain(null); }
@@ -202,12 +210,6 @@
                 "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 }
             });
         }
-    }
-
-    function updateStyle() {
-        const val = document.getElementById('base-selector').value;
-        map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
-        map.once('idle', () => { updateTerrain(); syncRoads(); syncBoundary(); });
     }
 
     function ensureHighlightLayer() {
@@ -272,7 +274,6 @@
         
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
-        document.getElementById('base-selector').addEventListener('change', updateStyle);
         
         document.getElementById('forest-select').addEventListener('change', (e) => {
             const data = JSON.parse(e.target.value);
