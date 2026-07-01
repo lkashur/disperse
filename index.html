@@ -9,45 +9,33 @@
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; background: #f4f4f4; }
-        #header { padding: 10px; text-align: center; height: 60px; }
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: sans-serif; }
         
-        #main-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
-        
-        /* --- Map Wrapper --- */
-        /* Normal Mode: Side-by-side flex layout */
-        #map-wrapper { width: 80%; height: 600px; position: relative; border: 1px solid #999; background: #fff; display: flex; }
-        #map { flex-grow: 1; height: 100%; position: relative; }
+        #map-wrapper { width: 100vw; height: 100vh; position: relative; }
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-        /* --- Drawer Styles --- */
+        #header { 
+            position: absolute; top: 10px; left: 50px; right: 50px; z-index: 10;
+            padding: 10px; text-align: center; background: rgba(255, 255, 255, 0.8);
+            border-radius: 8px; pointer-events: none;
+        }
+
         #drawer-panel { 
-            width: 300px; height: 100%; background: white; 
-            flex-shrink: 0; z-index: 20; 
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1); overflow-y: auto; 
-            transition: transform 0.3s ease;
+            position: absolute; top: 0; left: 0; bottom: 0; width: 300px; 
+            background: white; z-index: 20; box-shadow: 2px 0 10px rgba(0,0,0,0.1); 
+            overflow-y: auto; transition: transform 0.3s ease;
         }
 
-        /* The Handle: Hidden by default, shown in Fullscreen */
-        #drawer-handle { display: none; }
-
-        /* --- Fullscreen Mode Overrides --- */
-        #map-wrapper:fullscreen { display: block; }
-        #map-wrapper:fullscreen #drawer-panel { 
-            position: absolute; top: 0; left: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.3);
-        }
-        /* Show handle and enable toggle logic only in Fullscreen */
-        #map-wrapper:fullscreen #drawer-handle { 
+        #drawer-handle { 
             display: flex; position: absolute; top: 100px; left: 300px; z-index: 25; 
             width: 25px; height: 60px; background: white; border: 1px solid #999; 
             border-left: none; border-radius: 0 8px 8px 0; cursor: pointer; 
-            align-items: center; justify-content: center;
+            align-items: center; justify-content: center; transition: left 0.3s ease;
         }
-        
-        /* Drawer Toggle Logic (Only active in Fullscreen) */
-        #map-wrapper:fullscreen.menu-closed #drawer-panel { transform: translateX(-300px); }
-        #map-wrapper:fullscreen.menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
 
-        /* Tabs and Controls */
+        .menu-closed #drawer-panel { transform: translateX(-300px); }
+        .menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
+
         .tab-bar { display: flex; border-bottom: 1px solid #ccc; background: #f8f8f8; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: #fff; border-bottom: 2px solid #2e7d32; }
@@ -62,42 +50,39 @@
 </head>
 <body>
 
-<div id="header"><h1>National Forest Explorer</h1></div>
-
-<div id="main-container">
-    <div id="map-wrapper">
-        <div id="drawer-panel">
-            <div class="tab-bar">
-                <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
-                <button class="tab-btn" onclick="openTab('nav')">Navigation</button>
-            </div>
-            
-            <div id="tools-pane" class="tab-content">
-                <div class="instructions">Select a forest to begin.</div>
-                <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
-                <select id="base-selector">
-                    <option value="streets-v2" selected>Standard (Streets)</option>
-                    <option value="outdoor-v2">Outdoor</option>
-                    <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
-                </select>
-                <button id="toggle-roads">Toggle MVUM Roads</button>
-                <button id="toggle-boundary">Toggle Forest Boundary</button>
-                <button id="btn-screenshot" style="background: #2e7d32; color: white;">Save Screenshot</button>
-                <hr>
-                <button id="btn-fetch-dates" style="background: #0d47a1; color: white;">Load Satellite Dates</button>
-                <select id="date-select" style="display:none"></select>
-                <button id="btn-view-snapshot" style="background: #2e7d32; color: white; display: none;">View Selected Date</button>
-            </div>
-
-            <div id="nav-pane" class="tab-content" style="display:none;">
-                <div id="nav-content"><em>Select a road on the map to see directions.</em></div>
-            </div>
+<div id="map-wrapper">
+    <div id="header"><h1>National Forest Explorer</h1></div>
+    
+    <div id="drawer-panel">
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
+            <button class="tab-btn" onclick="openTab('nav')">Navigation</button>
         </div>
         
-        <div id="drawer-handle" onclick="toggleDrawer()">⋮</div>
-        
-        <div id="map"></div>
+        <div id="tools-pane" class="tab-content">
+            <div class="instructions">Select a forest to begin.</div>
+            <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
+            <select id="base-selector">
+                <option value="streets-v2" selected>Standard (Streets)</option>
+                <option value="outdoor-v2">Outdoor</option>
+                <option value="019e74c9-570e-7893-90e7-a01ec7d07286">Satellite Hybrid</option>
+            </select>
+            <button id="toggle-roads">Toggle MVUM Roads</button>
+            <button id="toggle-boundary">Toggle Forest Boundary</button>
+            <button id="btn-screenshot" style="background: #2e7d32; color: white;">Save Screenshot</button>
+            <hr>
+            <button id="btn-fetch-dates" style="background: #0d47a1; color: white;">Load Satellite Dates</button>
+            <select id="date-select" style="display:none"></select>
+            <button id="btn-view-snapshot" style="background: #2e7d32; color: white; display: none;">View Selected Date</button>
+        </div>
+
+        <div id="nav-pane" class="tab-content" style="display:none;">
+            <div id="nav-content"><em>Select a road on the map to see directions.</em></div>
+        </div>
     </div>
+    
+    <div id="drawer-handle" onclick="toggleDrawer()">⋮</div>
+    <div id="map"></div>
 </div>
 
 <div id="image-modal" onclick="this.style.display='none'" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; cursor:pointer;">
@@ -112,19 +97,10 @@
     let roadsVisible = false, boundaryVisible = false, currentRoadFile = null, currentBoundaryFile = null, currentBounds = null, currentForestName = "";
     let fullRouteGeometry = null, lastRouteSteps = null;
 
-    // --- Drawer Logic ---
     function toggleDrawer() {
         document.getElementById('map-wrapper').classList.toggle('menu-closed');
         setTimeout(() => map.resize(), 300);
     }
-
-    // Auto-reopen menu when exiting fullscreen
-    document.addEventListener('fullscreenchange', () => {
-        if (!document.fullscreenElement) {
-            document.getElementById('map-wrapper').classList.remove('menu-closed');
-            map.resize();
-        }
-    });
 
     function openTab(tab) {
         document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
@@ -136,7 +112,6 @@
         map.resize();
     }
 
-    // --- Utilities ---
     async function getAccessToken() {
         try { const r = await fetch('/api/get-token'); const d = await r.json(); return d.access_token; } 
         catch (e) { return null; }
@@ -189,7 +164,6 @@
         const metaLink = document.createElement('a'); metaLink.href = URL.createObjectURL(blob); metaLink.download = `meta-${Date.now()}.json`; metaLink.click();
     }
 
-    // --- Map Operations ---
     function updateTerrain() {
         const base = document.getElementById('base-selector').value;
         if (base === '019e74c9-570e-7893-90e7-a01ec7d07286') {
@@ -217,10 +191,7 @@
             map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
             map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
             map.addLayer({
-                "id": "boundary-label",
-                "type": "symbol",
-                "source": "boundary-source",
-                "source-layer": "forest_boundary",
+                "id": "boundary-label", "type": "symbol", "source": "boundary-source", "source-layer": "forest_boundary",
                 "layout": { "text-field": ["get", "NAME"], "text-size": 16, "text-anchor": "center" },
                 "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 }
             });
@@ -240,7 +211,6 @@
         }
     }
 
-    // --- Navigation Logic ---
     async function handleRoadClick(e) {
         openTab('nav');
         const coords = e.lngLat;
@@ -286,7 +256,6 @@
         }
     }
 
-    // --- Init ---
     async function initApp() {
         const config = await fetch('/api/get-config').then(r => r.json());
         mapTilerKey = config.mapTilerKey; sentinelInstanceId = config.sentinelInstanceId; sentinelLayerId = config.sentinelLayerId;
@@ -295,8 +264,6 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         
-        map.on('fullscreen', () => setTimeout(() => map.resize(), 100));
-
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
         document.getElementById('btn-screenshot').addEventListener('click', captureView);
