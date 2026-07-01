@@ -27,9 +27,7 @@
         #map { position: absolute; top: 50px; left: 0; width: 100%; bottom: 0; }
 
         /* --- Basemap Control --- */
-        #basemap-control {
-            display: flex; flex-direction: column;
-        }
+        #basemap-control { display: flex; flex-direction: column; }
         
         .map-fab {
             width: 29px; height: 29px; background: white; border: none;
@@ -37,7 +35,6 @@
             padding: 0; outline: none; position: relative;
         }
         
-        /* Tooltip */
         .map-fab .tooltip {
             position: absolute; right: 40px; top: 0px; background: #333; color: white;
             padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;
@@ -45,29 +42,26 @@
         }
         .map-fab:hover .tooltip { opacity: 1; }
 
-        /* The Grid Panel */
         .basemap-panel {
             display: none; position: absolute; right: 40px; top: 0;
             background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             padding: 10px; gap: 10px; width: 240px; z-index: 1000;
         }
-        
-        /* Show panel when active class is added via JS */
         .basemap-panel.is-active { display: flex; }
 
-        .basemap-option {
-            flex: 1; cursor: pointer; text-align: center; font-size: 11px;
-        }
+        .basemap-option { flex: 1; cursor: pointer; text-align: center; font-size: 11px; }
+        
         .thumb {
             width: 60px; height: 60px; border-radius: 4px; margin-bottom: 5px;
             border: 2px solid transparent; transition: border 0.2s;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
         .basemap-option:hover .thumb { border-color: #2e7d32; }
         
-        /* Thumbnail Visuals */
-        .thumb.streets { background: #fcfcfc; border: 1px solid #ddd; background-image: linear-gradient(45deg, #e0e0e0 25%, transparent 25%), linear-gradient(-45deg, #e0e0e0 25%, transparent 25%); }
-        .thumb.outdoor { background: #e8f5e9; border: 1px solid #a5d6a7; }
-        .thumb.satellite { background: #263238; border: 1px solid #000; }
+        /* Thumb Styles */
+        .thumb.streets { background: #fdfdfd; border: 1px solid #ddd; stroke: #999; fill: #eee; }
+        .thumb.outdoor { background: #e8f5e9; border: 1px solid #a5d6a7; stroke: #2e7d32; fill: #c8e6c9; }
+        .thumb.satellite { background: #263238; border: 1px solid #000; stroke: #fff; fill: #455a64; }
 
         /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
@@ -108,13 +102,13 @@
         </button>
         <div class="basemap-panel" id="basemap-panel">
             <div class="basemap-option" onclick="changeStyle('streets-v2')">
-                <div class="thumb streets"></div>Streets
+                <div class="thumb streets"><svg viewBox="0 0 100 60"><path d="M10,10 L90,10 L90,50 L10,50 Z" stroke-width="2"/></svg></div>Streets
             </div>
             <div class="basemap-option" onclick="changeStyle('outdoor-v2')">
-                <div class="thumb outdoor"></div>Outdoor
+                <div class="thumb outdoor"><svg viewBox="0 0 100 60"><path d="M10,10 L90,10 L90,50 L10,50 Z" stroke-width="2"/></svg></div>Outdoor
             </div>
             <div class="basemap-option" onclick="changeStyle('019e74c9-570e-7893-90e7-a01ec7d07286')">
-                <div class="thumb satellite"></div>Satellite
+                <div class="thumb satellite"><svg viewBox="0 0 100 60"><path d="M10,10 L90,10 L90,50 L10,50 Z" stroke-width="2"/></svg></div>Satellite
             </div>
         </div>
     </div>
@@ -163,9 +157,6 @@
             this.container.parentNode.removeChild(this.container);
         }
     }
-
-    let roadsVisible = false, boundaryVisible = false, currentRoadFile = null, currentBoundaryFile = null, currentBounds = null, currentForestName = "";
-    let fullRouteGeometry = null, lastRouteSteps = null;
 
     function toggleDrawer() {
         document.getElementById('map-wrapper').classList.toggle('menu-closed');
@@ -324,7 +315,6 @@
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new BasemapControl(), 'top-right');
 
-        // Toggle logic for basemap
         const trigger = document.getElementById('basemap-trigger');
         const panel = document.getElementById('basemap-panel');
 
@@ -333,7 +323,6 @@
             panel.classList.toggle('is-active');
         });
 
-        // Close panel when clicking elsewhere on the map
         map.on('click', () => {
             if (panel.classList.contains('is-active')) {
                 panel.classList.remove('is-active');
