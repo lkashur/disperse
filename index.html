@@ -26,7 +26,7 @@
         }
         #map { position: absolute; top: 50px; left: 0; width: 100%; bottom: 0; }
 
-        /* --- Basemap Control (Cleaned styles to match native controls) --- */
+        /* --- Basemap Control --- */
         #basemap-control {
             display: flex; flex-direction: column;
         }
@@ -51,7 +51,9 @@
             background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             padding: 10px; gap: 10px; width: 240px; z-index: 1000;
         }
-        .map-fab:hover + .basemap-panel, .basemap-panel:hover { display: flex; }
+        
+        /* Show panel when active class is added via JS */
+        .basemap-panel.is-active { display: flex; }
 
         .basemap-option {
             flex: 1; cursor: pointer; text-align: center; font-size: 11px;
@@ -100,11 +102,11 @@
     <div id="header"><strong>Disperse</strong> National Forest Explorer</div>
     
     <div id="basemap-control" class="maplibregl-ctrl maplibregl-ctrl-group">
-        <button class="map-fab">
+        <button class="map-fab" id="basemap-trigger">
             <span class="tooltip">Base Map</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4-8 4-8-4 8-4zM2 12l8 4 8-4M2 17l8 4 8-4"/></svg>
         </button>
-        <div class="basemap-panel">
+        <div class="basemap-panel" id="basemap-panel">
             <div class="basemap-option" onclick="changeStyle('streets-v2')">
                 <div class="thumb streets"></div>Streets
             </div>
@@ -321,6 +323,22 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new BasemapControl(), 'top-right');
+
+        // Toggle logic for basemap
+        const trigger = document.getElementById('basemap-trigger');
+        const panel = document.getElementById('basemap-panel');
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            panel.classList.toggle('is-active');
+        });
+
+        // Close panel when clicking elsewhere on the map
+        map.on('click', () => {
+            if (panel.classList.contains('is-active')) {
+                panel.classList.remove('is-active');
+            }
+        });
         
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
