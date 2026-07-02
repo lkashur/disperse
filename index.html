@@ -127,11 +127,10 @@
     let roadsVisible = false;
     let boundaryVisible = false;
     
-    // UI State
-    let currentMode = 'state'; // 'state' or 'forest'
+    let currentMode = 'state'; 
     let activeState = null;
     let activeForest = null;
-    let stateForests = []; // Forests currently loaded in state mode
+    let stateForests = []; 
 
     const B_COLORS = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#a65628', '#f781bf'];
 
@@ -164,9 +163,7 @@
         map.once('idle', () => { updateTerrain(val); refreshLayers(); });
     }
 
-    // --- Core Map Logic ---
     function removeExistingLayers() {
-        // Find all layers and sources matching our road/boundary patterns
         const layers = map.getStyle().layers;
         layers.forEach(l => {
             if (l.id.startsWith('road-') || l.id.startsWith('boundary-')) map.removeLayer(l.id);
@@ -204,13 +201,13 @@
         map.addLayer({ "id": `boundary-label-${id}`, "type": "symbol", "source": id, "source-layer": "forest_boundary", "layout": { "text-field": ["get", "NAME"], "text-size": 14 }, "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 } });
     }
 
-    // --- Existing Utility Functions ---
+    // --- Placeholder/Standard functions ---
     async function getAccessToken() { try { const r = await fetch('/api/get-token'); const d = await r.json(); return d.access_token; } catch (e) { return null; } }
-    async function fetchAvailableDates() { /* ... */ } 
-    async function loadSatellitePreview() { /* ... */ }
-    function updateTerrain(styleVal) { /* ... */ }
+    async function fetchAvailableDates() { /* implementation */ }
+    async function loadSatellitePreview() { /* implementation */ }
+    function updateTerrain(styleVal) { /* implementation */ }
     function ensureHighlightLayer() { if (!map.getSource('highlight-route')) { map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } }); map.addLayer({ id: 'highlight-route', type: 'line', source: 'highlight-route', paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 } }); } }
-    async function handleRoadClick(e) { /* ... */ } // (Keep existing implementation)
+    async function handleRoadClick(e) { /* implementation */ }
 
     async function initApp() {
         const config = await fetch('/api/get-config').then(r => r.json());
@@ -222,16 +219,20 @@
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new BasemapControl(), 'top-right');
 
+        // Basemap Toggle Logic Restored
+        const trigger = document.getElementById('basemap-trigger');
+        const panel = document.getElementById('basemap-panel');
+        trigger.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.toggle('is-active'); });
+        map.on('click', () => { if (panel.classList.contains('is-active')) panel.classList.remove('is-active'); });
+
         // Logic Initialization
         document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; refreshLayers(); });
         document.getElementById('toggle-boundary').addEventListener('click', () => { boundaryVisible = !boundaryVisible; refreshLayers(); });
 
-        // Data Loading
         const [forestRes, statesRes] = await Promise.all([fetch('forests.json'), fetch('states.json')]);
         allForestData = await forestRes.json();
         allStatesData = await statesRes.json();
 
-        // Populate State Dropdown
         const stateSelect = document.getElementById('state-select');
         Object.keys(allStatesData).sort().forEach(s => {
             const opt = document.createElement('option'); opt.value = s; opt.text = s;
@@ -242,12 +243,10 @@
             activeState = e.target.value;
             const stateInfo = allStatesData[activeState];
             stateForests = allForestData.filter(f => stateInfo.forests.includes(f.name));
-            
             map.fitBounds([[stateInfo.bounds[0], stateInfo.bounds[1]], [stateInfo.bounds[2], stateInfo.bounds[3]]], { padding: 50 });
             refreshLayers();
         });
 
-        // Populate Forest Dropdown
         const forestSelect = document.getElementById('forest-select');
         allForestData.forEach(f => {
             const opt = document.createElement('option'); opt.value = JSON.stringify(f); opt.text = f.name;
@@ -261,7 +260,6 @@
             refreshLayers();
         });
 
-        // Initialize Satellite/UI
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
         map.on('load', () => { ensureHighlightLayer(); });
