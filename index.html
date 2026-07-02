@@ -67,11 +67,6 @@
 
         .basemap-option:hover .thumb { border-color: #2e7d32; }
 
-        /* Mode Selector */
-        .mode-container { background: #f0f0f0; padding: 10px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc; }
-        .mode-label { font-weight: bold; font-size: 14px; margin-bottom: 5px; display: block; }
-        .mode-option { font-size: 13px; cursor: pointer; margin-right: 10px; }
-
         /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
         #map-wrapper:fullscreen #drawer-panel { top: 0; }
@@ -132,20 +127,9 @@
         </div>
         
         <div id="tools-pane" class="tab-content">
-            <div class="mode-container">
-                <span class="mode-label">View Mode</span>
-                <label class="mode-option"><input type="radio" name="mode" value="state" checked> State Focus</label>
-                <label class="mode-option"><input type="radio" name="mode" value="forest"> Forest Focus</label>
-            </div>
-            
-            <div id="state-group">
-                <select id="state-select"><option value="" selected>-- Select a State --</option></select>
-            </div>
-            
-            <div id="forest-group" style="display:none;">
-                <select id="forest-select"><option value="" selected>-- Select a Forest --</option></select>
-            </div>
-
+            <div class="instructions">Select a state and forest to begin.</div>
+            <select id="state-select"><option value="" selected>-- Select a State --</option></select>
+            <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
             <button id="toggle-roads">Toggle MVUM Roads</button>
             <button id="toggle-boundary">Toggle Forest Boundary</button>
             <hr>
@@ -171,9 +155,12 @@
     let mapTilerKey, sentinelInstanceId, sentinelLayerId, map, allForestData;
     let roadsVisible = false;
     let boundaryVisible = false;
+    let currentRoadFile = null;
+    let currentBoundaryFile = null;
+    let currentBounds = null;
+    let currentForestName = null;
     let fullRouteGeometry = null;
     let lastRouteSteps = [];
-    let loadedForests = []; // Track currently rendered forests
 
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -194,7 +181,7 @@
 
     function changeStyle(val) {
         map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
-        map.once('idle', () => { updateTerrain(val); redrawLayers(); });
+        map.once('idle', () => { updateTerrain(val); syncRoads(); syncBoundary(); });
     }
 
     async function getAccessToken() { try { const r = await fetch('/api/get-token'); const d = await r.json(); return d.access_token; } catch (e) { return null; } }
@@ -238,90 +225,144 @@
         } else { map.setTerrain(null); }
     }
 
-    // Dynamic Layer Management
-    function clearMapLayers() {
-        loadedForests.forEach(f => {
-            if (map.getLayer(`road-case-${f.id}`)) map.removeLayer(`road-case-${f.id}`);
-            if (map.getLayer(`road-core-${f.id}`)) map.removeLayer(`road-core-${f.id}`);
-            if (map.getLayer(`boundary-${f.id}`)) map.removeLayer(`boundary-${f.id}`);
-            if (map.getLayer(`boundary-label-${f.id}`)) map.removeLayer(`boundary-label-${f.id}`);
-            if (map.getSource(`roads-${f.id}`)) map.removeSource(`roads-${f.id}`);
-            if (map.getSource(`boundary-${f.id}`)) map.removeSource(`boundary-${f.id}`);
-        });
-        loadedForests = [];
+    function syncRoads() {
+        if (map.getLayer('road-casing')) map.removeLayer('road-casing');
+        if (map.getLayer('road-core')) map.removeLayer('road-core');
+        if (map.getSource('roads')) map.removeSource('roads');
+        if (roadsVisible && currentRoadFile) {
+            map.addSource('roads', { type: 'vector', url: `pmtiles://tiles/${currentRoadFile}` });
+            map.addLayer({ "id": "road-casing", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
+            map.addLayer({ "id": "road-core", "type": "line", "source": "roads", "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
+        }
     }
 
-    function renderForest(forest) {
-        const id = forest.id; 
-        loadedForests.push(forest);
-        
-        if (roadsVisible && forest.road_file) {
-            map.addSource(`roads-${id}`, { type: 'vector', url: `pmtiles://tiles/${forest.road_file}` });
-            map.addLayer({ "id": `road-case-${id}`, "type": "line", "source": `roads-${id}`, "source-layer": "mvum_roads", "paint": { "line-color": "#ffffff", "line-width": 6 } });
-            map.addLayer({ "id": `road-core-${id}`, "type": "line", "source": `roads-${id}`, "source-layer": "mvum_roads", "paint": { "line-color": "#e65100", "line-width": 3 } });
-        }
-        
-        if (boundaryVisible && forest.boundary_file && forest.boundary_file !== "undefined") {
-            map.addSource(`boundary-${id}`, { type: 'vector', url: `pmtiles://tiles/${forest.boundary_file}` });
-            map.addLayer({ "id": `boundary-${id}`, "type": "fill", "source": `boundary-${id}`, "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
+    function syncBoundary() {
+        if (map.getLayer('boundary-fill')) map.removeLayer('boundary-fill');
+        if (map.getLayer('boundary-label')) map.removeLayer('boundary-label');
+        if (map.getSource('boundary-source')) map.removeSource('boundary-source');
+        if (currentBoundaryFile && currentBoundaryFile !== "undefined" && boundaryVisible) {
+            map.addSource('boundary-source', { type: 'vector', url: `pmtiles://tiles/${currentBoundaryFile}` });
+            map.addLayer({ "id": "boundary-fill", "type": "fill", "source": "boundary-source", "source-layer": "forest_boundary", "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.3 } });
             map.addLayer({
-                "id": `boundary-label-${id}`, "type": "symbol", "source": `boundary-${id}`, "source-layer": "forest_boundary",
-                "layout": { "text-field": ["get", "NAME"], "text-size": 14, "text-anchor": "center" },
+                "id": "boundary-label", "type": "symbol", "source": "boundary-source", "source-layer": "forest_boundary",
+                "layout": { "text-field": ["get", "NAME"], "text-size": 16, "text-anchor": "center" },
                 "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 }
             });
         }
     }
 
-    function redrawLayers() {
-        // Logic for re-rendering based on current selection
-        const mode = document.querySelector('input[name="mode"]:checked').value;
-        const currentSelection = (mode === 'state') ? allForestData.filter(f => f.state === document.getElementById('state-select').value) 
-                                                   : allForestData.filter(f => f.name === document.getElementById('forest-select').options[document.getElementById('forest-select').selectedIndex].text);
-        
-        clearMapLayers();
-        currentSelection.forEach(f => renderForest(f));
+    function ensureHighlightLayer() {
+        if (!map.getSource('highlight-route')) {
+            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
+            map.addLayer({ id: 'highlight-route', type: 'line', source: 'highlight-route', paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 } });
+        }
     }
 
-    // Logic for UI interactions
+    async function handleRoadClick(e) {
+        openTab('nav');
+        const coords = e.lngLat;
+        const name = e.features[0].properties.NAME || 'N/A';
+        document.getElementById('nav-content').innerHTML = `
+            <strong>Road:</strong> ${name}<br>
+            <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
+            <button id="btn-get-route">Get Directions</button>
+            <div id="route-info"></div>
+            <p class="route-warning"><strong>⚠️ Verify closures with USFS MVUM.</strong></p>
+        `;
+        document.getElementById('btn-get-route').onclick = async () => {
+            const geo = await fetch(`/api/geocode?q=${encodeURIComponent(document.getElementById('from-location').value)}`).then(r => r.json());
+            const routeRes = await fetch('/api/route', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ start: geo.features[0].center, end: [coords.lng, coords.lat] }) });
+            const data = await routeRes.json();
+            fullRouteGeometry = data.features[0].geometry;
+            lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
+            renderRouteInfo(lastRouteSteps); renderRoute(fullRouteGeometry);
+        };
+    }
+
+    function processDirections(steps) {
+        return steps.map(s => ({ ...s, displayLabel: (s.name && s.name !== "-" && !s.instruction.includes(s.name)) ? `${s.instruction} (${s.name})` : s.instruction, miles: (s.distance / 1609.34).toFixed(1), wayPoints: s.way_points }));
+    }
+
+    function renderRouteInfo(steps) {
+        document.getElementById('route-info').innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" onclick="highlightSegment(${idx})"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}</div>`;
+    }
+
+    function highlightSegment(index) {
+        const step = lastRouteSteps[index];
+        const seg = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
+        map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: seg } });
+        const bbox = turf.bbox({type: 'LineString', coordinates: seg});
+        map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
+    }
+
+    function renderRoute(geometry) {
+        if (map.getSource('route')) map.getSource('route').setData(geometry);
+        else {
+            map.addSource('route', { type: 'geojson', data: geometry });
+            map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
+        }
+    }
+
     async function initApp() {
         const config = await fetch('/api/get-config').then(r => r.json());
         mapTilerKey = config.mapTilerKey; sentinelInstanceId = config.sentinelInstanceId; sentinelLayerId = config.sentinelLayerId;
 
         map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
         
-        // UI Listeners
-        document.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener('change', (e) => {
-            document.getElementById('state-group').style.display = (e.target.value === 'state') ? 'block' : 'none';
-            document.getElementById('forest-group').style.display = (e.target.value === 'forest') ? 'block' : 'none';
-        }));
+        map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.addControl(new BasemapControl(), 'top-right');
 
-        document.getElementById('state-select').addEventListener('change', (e) => {
-            const state = e.target.value;
-            const forests = allForestData.filter(f => f.state === state);
-            if(forests.length > 0) map.fitBounds([[Math.min(...forests.map(f=>f.bounds[0])), Math.min(...forests.map(f=>f.bounds[1]))], [Math.max(...forests.map(f=>f.bounds[2])), Math.max(...forests.map(f=>f.bounds[3]))]], { padding: 50 });
-            redrawLayers();
-        });
+        const trigger = document.getElementById('basemap-trigger');
+        const panel = document.getElementById('basemap-panel');
 
+        trigger.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.toggle('is-active'); });
+        map.on('click', () => { if (panel.classList.contains('is-active')) panel.classList.remove('is-active'); });
+        
+        document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
+        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
+        
         document.getElementById('forest-select').addEventListener('change', (e) => {
             const data = JSON.parse(e.target.value);
+            const opt = e.target.selectedOptions[0];
+            currentBounds = data; currentForestName = opt.text;
+            currentRoadFile = opt.dataset.roadFile; currentBoundaryFile = opt.dataset.boundaryFile;
             map.fitBounds([[data[0], data[1]], [data[2], data[3]]], { padding: 50 });
-            redrawLayers();
+            syncRoads(); syncBoundary();
         });
-
-        document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; redrawLayers(); });
-        document.getElementById('toggle-boundary').addEventListener('click', () => { boundaryVisible = !boundaryVisible; redrawLayers(); });
         
-        // Data Load
+        document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; syncRoads(); });
+        document.getElementById('toggle-boundary').addEventListener('click', () => { boundaryVisible = !boundaryVisible; syncBoundary(); });
+        
+        map.on('click', 'road-core', handleRoadClick);
+        map.on('load', () => { ensureHighlightLayer(); });
+
         fetch('forests.json').then(r => r.json()).then(data => {
             allForestData = data;
-            const states = [...new Set(data.map(f => f.state))].sort();
-            states.forEach(s => { const opt = document.createElement('option'); opt.value = s; opt.text = s; document.getElementById('state-select').appendChild(opt); });
-            data.forEach(f => { const opt = document.createElement('option'); opt.value = JSON.stringify(f.bounds); opt.text = f.name; document.getElementById('forest-select').appendChild(opt); });
-        });
-        
-        map.on('click', (e) => {
-             // Simplified Click Handling logic for dynamic layers
-             // Note: In a production app, use queryRenderedFeatures with an array of layer IDs
+            const stateSelect = document.getElementById('state-select');
+            const forestSelect = document.getElementById('forest-select');
+            
+            // Extract unique states using flatMap
+            const states = [...new Set(data.flatMap(f => f.states))].sort();
+            states.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s; opt.text = s;
+                stateSelect.appendChild(opt);
+            });
+
+            stateSelect.addEventListener('change', (e) => {
+                const selectedState = e.target.value;
+                forestSelect.innerHTML = '<option value="" disabled selected>-- Select a Forest --</option>';
+                const filtered = data.filter(f => f.states.includes(selectedState));
+                filtered.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = JSON.stringify(f.bounds); 
+                    opt.dataset.roadFile = f.road_file; 
+                    opt.dataset.boundaryFile = f.boundary_file || "undefined"; 
+                    opt.text = f.name;
+                    forestSelect.appendChild(opt);
+                });
+            });
         });
     }
 
