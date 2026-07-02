@@ -1,6 +1,10 @@
 [
     {
         "name": "Allegheny National Forest",
+        "states": [
+            "NY",
+            "PA"
+        ],
         "road_file": "allegheny_national_forest.pmtiles",
         "boundary_file": "allegheny_national_forest_boundary.pmtiles",
         "bounds": [
@@ -12,6 +16,11 @@
     },
     {
         "name": "Arapaho and Roosevelt National Forests",
+        "states": [
+            "CO",
+            "NE",
+            "WY"
+        ],
         "road_file": "arapaho_and_roosevelt_national_forests.pmtiles",
         "boundary_file": "arapaho_and_roosevelt_national_forests_boundary.pmtiles",
         "bounds": [
@@ -23,6 +32,10 @@
     },
     {
         "name": "Ashley National Forest",
+        "states": [
+            "UT",
+            "WY"
+        ],
         "road_file": "ashley_national_forest.pmtiles",
         "boundary_file": "ashley_national_forest_boundary.pmtiles",
         "bounds": [
@@ -34,6 +47,10 @@
     },
     {
         "name": "Bighorn National Forest",
+        "states": [
+            "MT",
+            "WY"
+        ],
         "road_file": "bighorn_national_forest.pmtiles",
         "boundary_file": "bighorn_national_forest_boundary.pmtiles",
         "bounds": [
@@ -45,6 +62,10 @@
     },
     {
         "name": "Bitterroot National Forest",
+        "states": [
+            "ID",
+            "MT"
+        ],
         "road_file": "bitterroot_national_forest.pmtiles",
         "boundary_file": "bitterroot_national_forest_boundary.pmtiles",
         "bounds": [
@@ -56,6 +77,10 @@
     },
     {
         "name": "Black Hills National Forest",
+        "states": [
+            "SD",
+            "WY"
+        ],
         "road_file": "black_hills_national_forest.pmtiles",
         "boundary_file": "black_hills_national_forest_boundary.pmtiles",
         "bounds": [
@@ -67,6 +92,9 @@
     },
     {
         "name": "Boise National Forest",
+        "states": [
+            "ID"
+        ],
         "road_file": "boise_national_forest.pmtiles",
         "boundary_file": "boise_national_forest_boundary.pmtiles",
         "bounds": [
@@ -78,6 +106,10 @@
     },
     {
         "name": "Bridger-Teton National Forest",
+        "states": [
+            "ID",
+            "WY"
+        ],
         "road_file": "bridger_teton_national_forest.pmtiles",
         "boundary_file": "bridger_teton_national_forest_boundary.pmtiles",
         "bounds": [
@@ -89,6 +121,12 @@
     },
     {
         "name": "Caribou-Targhee National Forest",
+        "states": [
+            "ID",
+            "MT",
+            "UT",
+            "WY"
+        ],
         "road_file": "caribou_targhee_national_forest.pmtiles",
         "boundary_file": "caribou_targhee_national_forest_boundary.pmtiles",
         "bounds": [
@@ -100,6 +138,10 @@
     },
     {
         "name": "Carson National Forest",
+        "states": [
+            "CO",
+            "NM"
+        ],
         "road_file": "carson_national_forest.pmtiles",
         "boundary_file": "carson_national_forest_boundary.pmtiles",
         "bounds": [
@@ -111,6 +153,12 @@
     },
     {
         "name": "Chattahoochee-Oconee National Forests",
+        "states": [
+            "GA",
+            "NC",
+            "SC",
+            "TN"
+        ],
         "road_file": "chattahoochee_oconee_national_forests.pmtiles",
         "boundary_file": "chattahoochee_oconee_national_forests_boundary.pmtiles",
         "bounds": [
@@ -122,6 +170,10 @@
     },
     {
         "name": "Chequamegon-Nicolet National Forest",
+        "states": [
+            "MI",
+            "WI"
+        ],
         "road_file": "chequamegon_nicolet_national_forest.pmtiles",
         "boundary_file": "chequamegon_nicolet_national_forest_boundary.pmtiles",
         "bounds": [
@@ -133,6 +185,12 @@
     },
     {
         "name": "Cherokee National Forest",
+        "states": [
+            "GA",
+            "NC",
+            "TN",
+            "VA"
+        ],
         "road_file": "cherokee_national_forest.pmtiles",
         "boundary_file": "cherokee_national_forest_boundary.pmtiles",
         "bounds": [
@@ -144,6 +202,9 @@
     },
     {
         "name": "Chippewa National Forest",
+        "states": [
+            "MN"
+        ],
         "road_file": "chippewa_national_forest.pmtiles",
         "boundary_file": "chippewa_national_forest_boundary.pmtiles",
         "bounds": [
@@ -155,6 +216,9 @@
     },
     {
         "name": "Chugach National Forest",
+        "states": [
+            "AK"
+        ],
         "road_file": "chugach_national_forest.pmtiles",
         "boundary_file": "chugach_national_forest_boundary.pmtiles",
         "bounds": [
@@ -166,6 +230,11 @@
     },
     {
         "name": "Cibola National Forest",
+        "states": [
+            "NM",
+            "OK",
+            "TX"
+        ],
         "road_file": "cibola_national_forest.pmtiles",
         "boundary_file": "cibola_national_forest_boundary.pmtiles",
         "bounds": [
@@ -177,6 +246,9 @@
     },
     {
         "name": "Cleveland National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "cleveland_national_forest.pmtiles",
         "boundary_file": "cleveland_national_forest_boundary.pmtiles",
         "bounds": [
@@ -188,6 +260,9 @@
     },
     {
         "name": "Coconino National Forest",
+        "states": [
+            "AZ"
+        ],
         "road_file": "coconino_national_forest.pmtiles",
         "boundary_file": "coconino_national_forest_boundary.pmtiles",
         "bounds": [
@@ -199,6 +274,10 @@
     },
     {
         "name": "Columbia River Gorge National Scenic Area",
+        "states": [
+            "OR",
+            "WA"
+        ],
         "road_file": "columbia_river_gorge_national_scenic_area.pmtiles",
         "boundary_file": "columbia_river_gorge_national_scenic_area_boundary.pmtiles",
         "bounds": [
@@ -210,6 +289,10 @@
     },
     {
         "name": "Colville National Forest",
+        "states": [
+            "ID",
+            "WA"
+        ],
         "road_file": "colville_national_forest.pmtiles",
         "boundary_file": "colville_national_forest_boundary.pmtiles",
         "bounds": [
@@ -221,6 +304,10 @@
     },
     {
         "name": "Coronado National Forest",
+        "states": [
+            "AZ",
+            "NM"
+        ],
         "road_file": "coronado_national_forest.pmtiles",
         "boundary_file": "coronado_national_forest_boundary.pmtiles",
         "bounds": [
@@ -232,6 +319,12 @@
     },
     {
         "name": "Custer Gallatin National Forest",
+        "states": [
+            "ID",
+            "MT",
+            "SD",
+            "WY"
+        ],
         "road_file": "custer_gallatin_national_forest.pmtiles",
         "boundary_file": "custer_gallatin_national_forest_boundary.pmtiles",
         "bounds": [
@@ -242,17 +335,12 @@
         ]
     },
     {
-        "name": "Custer National Forest",
-        "road_file": "custer_national_forest.pmtiles",
-        "bounds": [
-            -110.06652087700002,
-            44.99530098399998,
-            -103.15875620499997,
-            45.89984375099999
-        ]
-    },
-    {
         "name": "Dakota Prairie Grasslands",
+        "states": [
+            "MT",
+            "ND",
+            "SD"
+        ],
         "road_file": "dakota_prairie_grasslands.pmtiles",
         "boundary_file": "dakota_prairie_grasslands_boundary.pmtiles",
         "bounds": [
@@ -264,6 +352,10 @@
     },
     {
         "name": "Daniel Boone National Forest",
+        "states": [
+            "KY",
+            "TN"
+        ],
         "road_file": "daniel_boone_national_forest.pmtiles",
         "boundary_file": "daniel_boone_national_forest_boundary.pmtiles",
         "bounds": [
@@ -275,6 +367,9 @@
     },
     {
         "name": "Deschutes National Forest",
+        "states": [
+            "OR"
+        ],
         "road_file": "deschutes_national_forest.pmtiles",
         "boundary_file": "deschutes_national_forest_boundary.pmtiles",
         "bounds": [
@@ -286,6 +381,10 @@
     },
     {
         "name": "Dixie National Forest",
+        "states": [
+            "NV",
+            "UT"
+        ],
         "road_file": "dixie_national_forest.pmtiles",
         "boundary_file": "dixie_national_forest_boundary.pmtiles",
         "bounds": [
@@ -297,6 +396,9 @@
     },
     {
         "name": "Eldorado National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "eldorado_national_forest.pmtiles",
         "boundary_file": "eldorado_national_forest_boundary.pmtiles",
         "bounds": [
@@ -308,6 +410,9 @@
     },
     {
         "name": "Fishlake National Forest",
+        "states": [
+            "UT"
+        ],
         "road_file": "fishlake_national_forest.pmtiles",
         "boundary_file": "fishlake_national_forest_boundary.pmtiles",
         "bounds": [
@@ -319,6 +424,9 @@
     },
     {
         "name": "Flathead National Forest",
+        "states": [
+            "MT"
+        ],
         "road_file": "flathead_national_forest.pmtiles",
         "boundary_file": "flathead_national_forest_boundary.pmtiles",
         "bounds": [
@@ -330,6 +438,11 @@
     },
     {
         "name": "Francis Marion and Sumter National Forests",
+        "states": [
+            "GA",
+            "NC",
+            "SC"
+        ],
         "road_file": "francis_marion_and_sumter_national_forests.pmtiles",
         "boundary_file": "francis_marion_and_sumter_national_forests_boundary.pmtiles",
         "bounds": [
@@ -341,6 +454,10 @@
     },
     {
         "name": "Fremont-Winema National Forest",
+        "states": [
+            "CA",
+            "OR"
+        ],
         "road_file": "fremont_winema_national_forest.pmtiles",
         "boundary_file": "fremont_winema_national_forest_boundary.pmtiles",
         "bounds": [
@@ -351,17 +468,13 @@
         ]
     },
     {
-        "name": "Gallatin National Forest",
-        "road_file": "gallatin_national_forest.pmtiles",
-        "bounds": [
-            -110.064452201,
-            45.40310155899999,
-            -110.053898275,
-            45.44136402100003
-        ]
-    },
-    {
         "name": "George Washington and Jefferson National Forest",
+        "states": [
+            "KY",
+            "NC",
+            "VA",
+            "WV"
+        ],
         "road_file": "george_washington_and_jefferson_national_forest.pmtiles",
         "boundary_file": "george_washington_and_jefferson_national_forest_boundary.pmtiles",
         "bounds": [
@@ -373,6 +486,9 @@
     },
     {
         "name": "Gifford Pinchot National Forest",
+        "states": [
+            "WA"
+        ],
         "road_file": "gifford_pinchot_national_forest.pmtiles",
         "boundary_file": "gifford_pinchot_national_forest_boundary.pmtiles",
         "bounds": [
@@ -384,6 +500,10 @@
     },
     {
         "name": "Gila National Forest",
+        "states": [
+            "AZ",
+            "NM"
+        ],
         "road_file": "gila_national_forest.pmtiles",
         "boundary_file": "gila_national_forest_boundary.pmtiles",
         "bounds": [
@@ -395,6 +515,9 @@
     },
     {
         "name": "Grand Mesa, Uncompahgre and Gunnison National Forests",
+        "states": [
+            "CO"
+        ],
         "road_file": "grand_mesa__uncompahgre_and_gunnison_national_forests.pmtiles",
         "boundary_file": "grand_mesa__uncompahgre_and_gunnison_national_forests_boundary.pmtiles",
         "bounds": [
@@ -406,6 +529,12 @@
     },
     {
         "name": "Green Mountain and Finger Lakes National Forests",
+        "states": [
+            "MA",
+            "NJ",
+            "NY",
+            "VT"
+        ],
         "road_file": "green_mountain_and_finger_lakes_national_forests.pmtiles",
         "boundary_file": "green_mountain_and_finger_lakes_national_forests_boundary.pmtiles",
         "bounds": [
@@ -417,6 +546,9 @@
     },
     {
         "name": "Helena-Lewis and Clark National Forest",
+        "states": [
+            "MT"
+        ],
         "road_file": "helena_lewis_and_clark_national_forest.pmtiles",
         "boundary_file": "helena_lewis_and_clark_national_forest_boundary.pmtiles",
         "bounds": [
@@ -428,6 +560,9 @@
     },
     {
         "name": "Hiawatha National Forest",
+        "states": [
+            "MI"
+        ],
         "road_file": "hiawatha_national_forest.pmtiles",
         "boundary_file": "hiawatha_national_forest_boundary.pmtiles",
         "bounds": [
@@ -439,6 +574,10 @@
     },
     {
         "name": "Hoosier National Forest",
+        "states": [
+            "IN",
+            "KY"
+        ],
         "road_file": "hoosier_national_forest.pmtiles",
         "boundary_file": "hoosier_national_forest_boundary.pmtiles",
         "bounds": [
@@ -450,6 +589,12 @@
     },
     {
         "name": "Humboldt-Toiyabe National Forest",
+        "states": [
+            "CA",
+            "ID",
+            "NV",
+            "OR"
+        ],
         "road_file": "humboldt_toiyabe_national_forest.pmtiles",
         "boundary_file": "humboldt_toiyabe_national_forest_boundary.pmtiles",
         "bounds": [
@@ -461,6 +606,9 @@
     },
     {
         "name": "Huron-Manistee National Forest",
+        "states": [
+            "MI"
+        ],
         "road_file": "huron_manistee_national_forest.pmtiles",
         "boundary_file": "huron_manistee_national_forest_boundary.pmtiles",
         "bounds": [
@@ -472,6 +620,11 @@
     },
     {
         "name": "Idaho Panhandle National Forests",
+        "states": [
+            "ID",
+            "MT",
+            "WA"
+        ],
         "road_file": "idaho_panhandle_national_forests.pmtiles",
         "boundary_file": "idaho_panhandle_national_forests_boundary.pmtiles",
         "bounds": [
@@ -483,6 +636,10 @@
     },
     {
         "name": "Inyo National Forest",
+        "states": [
+            "CA",
+            "NV"
+        ],
         "road_file": "inyo_national_forest.pmtiles",
         "boundary_file": "inyo_national_forest_boundary.pmtiles",
         "bounds": [
@@ -494,6 +651,9 @@
     },
     {
         "name": "Kaibab National Forest",
+        "states": [
+            "AZ"
+        ],
         "road_file": "kaibab_national_forest.pmtiles",
         "boundary_file": "kaibab_national_forest_boundary.pmtiles",
         "bounds": [
@@ -505,6 +665,9 @@
     },
     {
         "name": "Kisatchie National Forest",
+        "states": [
+            "LA"
+        ],
         "road_file": "kisatchie_national_forest.pmtiles",
         "boundary_file": "kisatchie_national_forest_boundary.pmtiles",
         "bounds": [
@@ -516,6 +679,10 @@
     },
     {
         "name": "Klamath National Forest",
+        "states": [
+            "CA",
+            "OR"
+        ],
         "road_file": "klamath_national_forest.pmtiles",
         "boundary_file": "klamath_national_forest_boundary.pmtiles",
         "bounds": [
@@ -527,6 +694,10 @@
     },
     {
         "name": "Kootenai National Forest",
+        "states": [
+            "ID",
+            "MT"
+        ],
         "road_file": "kootenai_national_forest.pmtiles",
         "boundary_file": "kootenai_national_forest_boundary.pmtiles",
         "bounds": [
@@ -538,6 +709,10 @@
     },
     {
         "name": "Lake Tahoe Basin Management Unit",
+        "states": [
+            "CA",
+            "NV"
+        ],
         "road_file": "lake_tahoe_basin_management_unit.pmtiles",
         "boundary_file": "lake_tahoe_basin_management_unit_boundary.pmtiles",
         "bounds": [
@@ -549,6 +724,10 @@
     },
     {
         "name": "Land Between the Lakes National Recreation Area",
+        "states": [
+            "KY",
+            "TN"
+        ],
         "road_file": "land_between_the_lakes_national_recreation_area.pmtiles",
         "boundary_file": "land_between_the_lakes_national_recreation_area_boundary.pmtiles",
         "bounds": [
@@ -560,6 +739,9 @@
     },
     {
         "name": "Lassen National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "lassen_national_forest.pmtiles",
         "boundary_file": "lassen_national_forest_boundary.pmtiles",
         "bounds": [
@@ -571,6 +753,10 @@
     },
     {
         "name": "Lincoln National Forest",
+        "states": [
+            "NM",
+            "TX"
+        ],
         "road_file": "lincoln_national_forest.pmtiles",
         "boundary_file": "lincoln_national_forest_boundary.pmtiles",
         "bounds": [
@@ -582,6 +768,10 @@
     },
     {
         "name": "Lolo National Forest",
+        "states": [
+            "ID",
+            "MT"
+        ],
         "road_file": "lolo_national_forest.pmtiles",
         "boundary_file": "lolo_national_forest_boundary.pmtiles",
         "bounds": [
@@ -593,6 +783,9 @@
     },
     {
         "name": "Los Padres National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "los_padres_national_forest.pmtiles",
         "boundary_file": "los_padres_national_forest_boundary.pmtiles",
         "bounds": [
@@ -604,6 +797,10 @@
     },
     {
         "name": "Manti-La Sal National Forest",
+        "states": [
+            "CO",
+            "UT"
+        ],
         "road_file": "manti_la_sal_national_forest.pmtiles",
         "boundary_file": "manti_la_sal_national_forest_boundary.pmtiles",
         "bounds": [
@@ -615,6 +812,10 @@
     },
     {
         "name": "Mark Twain National Forest",
+        "states": [
+            "AR",
+            "MO"
+        ],
         "road_file": "mark_twain_national_forest.pmtiles",
         "boundary_file": "mark_twain_national_forest_boundary.pmtiles",
         "bounds": [
@@ -626,6 +827,10 @@
     },
     {
         "name": "Medicine Bow-Routt National Forest",
+        "states": [
+            "CO",
+            "WY"
+        ],
         "road_file": "medicine_bow_routt_national_forest.pmtiles",
         "boundary_file": "medicine_bow_routt_national_forest_boundary.pmtiles",
         "bounds": [
@@ -637,6 +842,9 @@
     },
     {
         "name": "Mendocino National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "mendocino_national_forest.pmtiles",
         "boundary_file": "mendocino_national_forest_boundary.pmtiles",
         "bounds": [
@@ -648,6 +856,10 @@
     },
     {
         "name": "Modoc National Forest",
+        "states": [
+            "CA",
+            "OR"
+        ],
         "road_file": "modoc_national_forest.pmtiles",
         "boundary_file": "modoc_national_forest_boundary.pmtiles",
         "bounds": [
@@ -659,6 +871,10 @@
     },
     {
         "name": "Monongahela National Forest",
+        "states": [
+            "VA",
+            "WV"
+        ],
         "road_file": "monongahela_national_forest.pmtiles",
         "boundary_file": "monongahela_national_forest_boundary.pmtiles",
         "bounds": [
@@ -670,6 +886,9 @@
     },
     {
         "name": "Mt. Baker-Snoqualmie National Forest",
+        "states": [
+            "WA"
+        ],
         "road_file": "mt__baker_snoqualmie_national_forest.pmtiles",
         "boundary_file": "mt__baker_snoqualmie_national_forest_boundary.pmtiles",
         "bounds": [
@@ -681,6 +900,9 @@
     },
     {
         "name": "Mt. Hood National Forest",
+        "states": [
+            "OR"
+        ],
         "road_file": "mt__hood_national_forest.pmtiles",
         "boundary_file": "mt__hood_national_forest_boundary.pmtiles",
         "bounds": [
@@ -692,6 +914,10 @@
     },
     {
         "name": "National Forests in Florida",
+        "states": [
+            "FL",
+            "GA"
+        ],
         "road_file": "national_forests_in_florida.pmtiles",
         "boundary_file": "national_forests_in_florida_boundary.pmtiles",
         "bounds": [
@@ -703,6 +929,9 @@
     },
     {
         "name": "National Forests in Mississippi",
+        "states": [
+            "MS"
+        ],
         "road_file": "national_forests_in_mississippi.pmtiles",
         "boundary_file": "national_forests_in_mississippi_boundary.pmtiles",
         "bounds": [
@@ -714,6 +943,12 @@
     },
     {
         "name": "National Forests in North Carolina",
+        "states": [
+            "GA",
+            "NC",
+            "SC",
+            "TN"
+        ],
         "road_file": "national_forests_in_north_carolina.pmtiles",
         "boundary_file": "national_forests_in_north_carolina_boundary.pmtiles",
         "bounds": [
@@ -725,6 +960,11 @@
     },
     {
         "name": "National Forests in Texas",
+        "states": [
+            "LA",
+            "OK",
+            "TX"
+        ],
         "road_file": "national_forests_in_texas.pmtiles",
         "boundary_file": "national_forests_in_texas_boundary.pmtiles",
         "bounds": [
@@ -736,6 +976,11 @@
     },
     {
         "name": "Nebraska National Forest",
+        "states": [
+            "NE",
+            "SD",
+            "WY"
+        ],
         "road_file": "nebraska_national_forest.pmtiles",
         "boundary_file": "nebraska_national_forest_boundary.pmtiles",
         "bounds": [
@@ -747,6 +992,10 @@
     },
     {
         "name": "Nez Perce-Clearwater National Forest",
+        "states": [
+            "ID",
+            "MT"
+        ],
         "road_file": "nez_perce_clearwater_national_forest.pmtiles",
         "boundary_file": "nez_perce_clearwater_national_forest_boundary.pmtiles",
         "bounds": [
@@ -758,6 +1007,9 @@
     },
     {
         "name": "Ochoco National Forest",
+        "states": [
+            "OR"
+        ],
         "road_file": "ochoco_national_forest.pmtiles",
         "boundary_file": "ochoco_national_forest_boundary.pmtiles",
         "bounds": [
@@ -769,6 +1021,9 @@
     },
     {
         "name": "Okanogan-Wenatchee National Forest",
+        "states": [
+            "WA"
+        ],
         "road_file": "okanogan_wenatchee_national_forest.pmtiles",
         "boundary_file": "okanogan_wenatchee_national_forest_boundary.pmtiles",
         "bounds": [
@@ -780,6 +1035,9 @@
     },
     {
         "name": "Olympic National Forest",
+        "states": [
+            "WA"
+        ],
         "road_file": "olympic_national_forest.pmtiles",
         "boundary_file": "olympic_national_forest_boundary.pmtiles",
         "bounds": [
@@ -791,6 +1049,10 @@
     },
     {
         "name": "Ottawa National Forest",
+        "states": [
+            "MI",
+            "WI"
+        ],
         "road_file": "ottawa_national_forest.pmtiles",
         "boundary_file": "ottawa_national_forest_boundary.pmtiles",
         "bounds": [
@@ -802,6 +1064,10 @@
     },
     {
         "name": "Ouachita National Forest",
+        "states": [
+            "AR",
+            "OK"
+        ],
         "road_file": "ouachita_national_forest.pmtiles",
         "boundary_file": "ouachita_national_forest_boundary.pmtiles",
         "bounds": [
@@ -813,6 +1079,10 @@
     },
     {
         "name": "Ozark-St. Francis National Forest",
+        "states": [
+            "AR",
+            "OK"
+        ],
         "road_file": "ozark_st__francis_national_forest.pmtiles",
         "boundary_file": "ozark_st__francis_national_forest_boundary.pmtiles",
         "bounds": [
@@ -824,6 +1094,10 @@
     },
     {
         "name": "Payette National Forest",
+        "states": [
+            "ID",
+            "OR"
+        ],
         "road_file": "payette_national_forest.pmtiles",
         "boundary_file": "payette_national_forest_boundary.pmtiles",
         "bounds": [
@@ -835,6 +1109,12 @@
     },
     {
         "name": "Pike and San Isabel National Forests",
+        "states": [
+            "CO",
+            "KS",
+            "NM",
+            "OK"
+        ],
         "road_file": "pike_and_san_isabel_national_forests.pmtiles",
         "boundary_file": "pike_and_san_isabel_national_forests_boundary.pmtiles",
         "bounds": [
@@ -846,6 +1126,9 @@
     },
     {
         "name": "Plumas National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "plumas_national_forest.pmtiles",
         "boundary_file": "plumas_national_forest_boundary.pmtiles",
         "bounds": [
@@ -857,6 +1140,9 @@
     },
     {
         "name": "Prescott National Forest",
+        "states": [
+            "AZ"
+        ],
         "road_file": "prescott_national_forest.pmtiles",
         "boundary_file": "prescott_national_forest_boundary.pmtiles",
         "bounds": [
@@ -868,6 +1154,10 @@
     },
     {
         "name": "Rio Grande National Forest",
+        "states": [
+            "CO",
+            "NM"
+        ],
         "road_file": "rio_grande_national_forest.pmtiles",
         "boundary_file": "rio_grande_national_forest_boundary.pmtiles",
         "bounds": [
@@ -879,6 +1169,10 @@
     },
     {
         "name": "Rogue River-Siskiyou National Forests",
+        "states": [
+            "CA",
+            "OR"
+        ],
         "road_file": "rogue_river_siskiyou_national_forests.pmtiles",
         "boundary_file": "rogue_river_siskiyou_national_forests_boundary.pmtiles",
         "bounds": [
@@ -890,6 +1184,10 @@
     },
     {
         "name": "Salmon-Challis National Forest",
+        "states": [
+            "ID",
+            "MT"
+        ],
         "road_file": "salmon_challis_national_forest.pmtiles",
         "boundary_file": "salmon_challis_national_forest_boundary.pmtiles",
         "bounds": [
@@ -901,6 +1199,9 @@
     },
     {
         "name": "San Bernardino National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "san_bernardino_national_forest.pmtiles",
         "boundary_file": "san_bernardino_national_forest_boundary.pmtiles",
         "bounds": [
@@ -912,6 +1213,9 @@
     },
     {
         "name": "San Juan National Forest",
+        "states": [
+            "CO"
+        ],
         "road_file": "san_juan_national_forest.pmtiles",
         "boundary_file": "san_juan_national_forest_boundary.pmtiles",
         "bounds": [
@@ -923,6 +1227,9 @@
     },
     {
         "name": "Santa Fe National Forest",
+        "states": [
+            "NM"
+        ],
         "road_file": "santa_fe_national_forest.pmtiles",
         "boundary_file": "santa_fe_national_forest_boundary.pmtiles",
         "bounds": [
@@ -934,6 +1241,11 @@
     },
     {
         "name": "Sawtooth National Forest",
+        "states": [
+            "ID",
+            "NV",
+            "UT"
+        ],
         "road_file": "sawtooth_national_forest.pmtiles",
         "boundary_file": "sawtooth_national_forest_boundary.pmtiles",
         "bounds": [
@@ -945,6 +1257,9 @@
     },
     {
         "name": "Sequoia National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "sequoia_national_forest.pmtiles",
         "boundary_file": "sequoia_national_forest_boundary.pmtiles",
         "bounds": [
@@ -956,6 +1271,9 @@
     },
     {
         "name": "Shasta-Trinity National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "shasta_trinity_national_forest.pmtiles",
         "boundary_file": "shasta_trinity_national_forest_boundary.pmtiles",
         "bounds": [
@@ -967,6 +1285,11 @@
     },
     {
         "name": "Shawnee National Forest",
+        "states": [
+            "IL",
+            "KY",
+            "MO"
+        ],
         "road_file": "shawnee_national_forest.pmtiles",
         "boundary_file": "shawnee_national_forest_boundary.pmtiles",
         "bounds": [
@@ -978,6 +1301,10 @@
     },
     {
         "name": "Shoshone National Forest",
+        "states": [
+            "MT",
+            "WY"
+        ],
         "road_file": "shoshone_national_forest.pmtiles",
         "boundary_file": "shoshone_national_forest_boundary.pmtiles",
         "bounds": [
@@ -989,6 +1316,9 @@
     },
     {
         "name": "Sierra National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "sierra_national_forest.pmtiles",
         "boundary_file": "sierra_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1000,6 +1330,9 @@
     },
     {
         "name": "Siuslaw National Forest",
+        "states": [
+            "OR"
+        ],
         "road_file": "siuslaw_national_forest.pmtiles",
         "boundary_file": "siuslaw_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1011,6 +1344,10 @@
     },
     {
         "name": "Six Rivers National Forest",
+        "states": [
+            "CA",
+            "OR"
+        ],
         "road_file": "six_rivers_national_forest.pmtiles",
         "boundary_file": "six_rivers_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1022,6 +1359,9 @@
     },
     {
         "name": "Stanislaus National Forest",
+        "states": [
+            "CA"
+        ],
         "road_file": "stanislaus_national_forest.pmtiles",
         "boundary_file": "stanislaus_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1033,6 +1373,9 @@
     },
     {
         "name": "Superior National Forest",
+        "states": [
+            "MN"
+        ],
         "road_file": "superior_national_forest.pmtiles",
         "boundary_file": "superior_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1044,6 +1387,10 @@
     },
     {
         "name": "Tahoe National Forest",
+        "states": [
+            "CA",
+            "NV"
+        ],
         "road_file": "tahoe_national_forest.pmtiles",
         "boundary_file": "tahoe_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1055,6 +1402,9 @@
     },
     {
         "name": "Tongass National Forest",
+        "states": [
+            "AK"
+        ],
         "road_file": "tongass_national_forest.pmtiles",
         "boundary_file": "tongass_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1066,6 +1416,9 @@
     },
     {
         "name": "Tonto National Forest",
+        "states": [
+            "AZ"
+        ],
         "road_file": "tonto_national_forest.pmtiles",
         "boundary_file": "tonto_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1077,6 +1430,11 @@
     },
     {
         "name": "Uinta-Wasatch-Cache National Forest",
+        "states": [
+            "ID",
+            "UT",
+            "WY"
+        ],
         "road_file": "uinta_wasatch_cache_national_forest.pmtiles",
         "boundary_file": "uinta_wasatch_cache_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1088,6 +1446,10 @@
     },
     {
         "name": "Umatilla National Forest",
+        "states": [
+            "OR",
+            "WA"
+        ],
         "road_file": "umatilla_national_forest.pmtiles",
         "boundary_file": "umatilla_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1099,6 +1461,9 @@
     },
     {
         "name": "Umpqua National Forest",
+        "states": [
+            "OR"
+        ],
         "road_file": "umpqua_national_forest.pmtiles",
         "boundary_file": "umpqua_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1110,6 +1475,10 @@
     },
     {
         "name": "Wayne National Forest",
+        "states": [
+            "OH",
+            "WV"
+        ],
         "road_file": "wayne_national_forest.pmtiles",
         "boundary_file": "wayne_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1121,6 +1490,10 @@
     },
     {
         "name": "White Mountain National Forest",
+        "states": [
+            "ME",
+            "NH"
+        ],
         "road_file": "white_mountain_national_forest.pmtiles",
         "boundary_file": "white_mountain_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1132,6 +1505,9 @@
     },
     {
         "name": "White River National Forest",
+        "states": [
+            "CO"
+        ],
         "road_file": "white_river_national_forest.pmtiles",
         "boundary_file": "white_river_national_forest_boundary.pmtiles",
         "bounds": [
@@ -1143,6 +1519,9 @@
     },
     {
         "name": "Willamette National Forest",
+        "states": [
+            "OR"
+        ],
         "road_file": "willamette_national_forest.pmtiles",
         "boundary_file": "willamette_national_forest_boundary.pmtiles",
         "bounds": [

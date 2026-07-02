@@ -58,17 +58,15 @@
             background: #eee;
         }
         
-        /* Thumbnail image styling */
         .thumb img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Ensures screenshots fill the box without stretching */
+            object-fit: cover;
             display: block;
         }
 
         .basemap-option:hover .thumb { border-color: #2e7d32; }
 
-        /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
         #map-wrapper:fullscreen #drawer-panel { top: 0; }
         #map-wrapper:fullscreen #map { top: 0; }
@@ -128,7 +126,8 @@
         </div>
         
         <div id="tools-pane" class="tab-content">
-            <div class="instructions">Select a forest to begin.</div>
+            <div class="instructions">Select state and forest to begin.</div>
+            <select id="state-select"><option value="" disabled selected>-- Select a State --</option></select>
             <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
             <button id="toggle-roads">Toggle MVUM Roads</button>
             <button id="toggle-boundary">Toggle Forest Boundary</button>
@@ -152,7 +151,6 @@
 </div>
 
 <script>
-    // Global State Variables
     let mapTilerKey, sentinelInstanceId, sentinelLayerId, map;
     let roadsVisible = false;
     let boundaryVisible = false;
@@ -162,6 +160,7 @@
     let currentForestName = null;
     let fullRouteGeometry = null;
     let lastRouteSteps = [];
+    let allForests = []; // Store raw data
 
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -350,6 +349,7 @@
         document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
         document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
         
+        // Forest selection logic remains largely the same, now populated by the state selector
         document.getElementById('forest-select').addEventListener('change', (e) => {
             const data = JSON.parse(e.target.value);
             const opt = e.target.selectedOptions[0];
@@ -366,12 +366,33 @@
         map.on('load', () => { ensureHighlightLayer(); });
     }
 
+    // Populate State/Forest Dropdowns
     fetch('forests.json').then(r => r.json()).then(data => {
-        const select = document.getElementById('forest-select');
-        data.forEach(f => {
+        allForests = data;
+        const states = [...new Set(data.map(f => f.state))].sort();
+        const stateSelect = document.getElementById('state-select');
+        const forestSelect = document.getElementById('forest-select');
+
+        states.forEach(state => {
             const opt = document.createElement('option');
-            opt.value = JSON.stringify(f.bounds); opt.dataset.roadFile = f.road_file; opt.dataset.boundaryFile = f.boundary_file || "undefined"; opt.text = f.name;
-            select.appendChild(opt);
+            opt.value = state; opt.text = state;
+            stateSelect.appendChild(opt);
+        });
+
+        stateSelect.addEventListener('change', (e) => {
+            const selectedState = e.target.value;
+            // Clear current forests
+            forestSelect.innerHTML = '<option value="" disabled selected>-- Select a Forest --</option>';
+            
+            // Filter and append
+            allForests.filter(f => f.state === selectedState).forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify(f.bounds);
+                opt.dataset.roadFile = f.road_file;
+                opt.dataset.boundaryFile = f.boundary_file || "undefined";
+                opt.text = f.name;
+                forestSelect.appendChild(opt);
+            });
         });
     });
 
