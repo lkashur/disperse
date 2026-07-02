@@ -1,0 +1,625 @@
+{
+    "CA": {
+        "bounds": [
+            -124.409591,
+            32.534435,
+            -114.131211,
+            42.009485
+        ],
+        "forests": [
+            "Cleveland National Forest",
+            "Eldorado National Forest",
+            "Fremont-Winema National Forest",
+            "Humboldt-Toiyabe National Forest",
+            "Inyo National Forest",
+            "Klamath National Forest",
+            "Lake Tahoe Basin Management Unit",
+            "Lassen National Forest",
+            "Los Padres National Forest",
+            "Mendocino National Forest",
+            "Modoc National Forest",
+            "Plumas National Forest",
+            "Rogue River-Siskiyou National Forests",
+            "San Bernardino National Forest",
+            "Sequoia National Forest",
+            "Shasta-Trinity National Forest",
+            "Sierra National Forest",
+            "Six Rivers National Forest",
+            "Stanislaus National Forest",
+            "Tahoe National Forest"
+        ]
+    },
+    "NH": {
+        "bounds": [
+            -72.557247,
+            42.69699,
+            -70.610621,
+            45.305476
+        ],
+        "forests": [
+            "White Mountain National Forest"
+        ]
+    },
+    "OR": {
+        "bounds": [
+            -124.566244,
+            41.991794,
+            -116.463504,
+            46.290834
+        ],
+        "forests": [
+            "Columbia River Gorge National Scenic Area",
+            "Deschutes National Forest",
+            "Fremont-Winema National Forest",
+            "Humboldt-Toiyabe National Forest",
+            "Klamath National Forest",
+            "Modoc National Forest",
+            "Mt. Hood National Forest",
+            "Ochoco National Forest",
+            "Payette National Forest",
+            "Rogue River-Siskiyou National Forests",
+            "Siuslaw National Forest",
+            "Six Rivers National Forest",
+            "Umatilla National Forest",
+            "Umpqua National Forest",
+            "Willamette National Forest"
+        ]
+    },
+    "TX": {
+        "bounds": [
+            -106.645646,
+            25.837377,
+            -93.508292,
+            36.500704
+        ],
+        "forests": [
+            "Cibola National Forest",
+            "Lincoln National Forest",
+            "National Forests in Texas"
+        ]
+    },
+    "ND": {
+        "bounds": [
+            -104.0489,
+            45.935054,
+            -96.554507,
+            49.000574
+        ],
+        "forests": [
+            "Dakota Prairie Grasslands"
+        ]
+    },
+    "NV": {
+        "bounds": [
+            -120.006455,
+            35.001857,
+            -114.039648,
+            42.002207
+        ],
+        "forests": [
+            "Dixie National Forest",
+            "Humboldt-Toiyabe National Forest",
+            "Inyo National Forest",
+            "Lake Tahoe Basin Management Unit",
+            "Sawtooth National Forest",
+            "Tahoe National Forest"
+        ]
+    },
+    "OH": {
+        "bounds": [
+            -84.820157,
+            38.403202,
+            -80.518693,
+            41.977164
+        ],
+        "forests": [
+            "Wayne National Forest"
+        ]
+    },
+    "KY": {
+        "bounds": [
+            -89.571509,
+            36.497129,
+            -81.964971,
+            39.147458
+        ],
+        "forests": [
+            "Daniel Boone National Forest",
+            "George Washington and Jefferson National Forest",
+            "Hoosier National Forest",
+            "Land Between the Lakes National Recreation Area",
+            "Shawnee National Forest"
+        ]
+    },
+    "NY": {
+        "bounds": [
+            -79.762152,
+            40.496103,
+            -71.856483,
+            45.01585
+        ],
+        "forests": [
+            "Allegheny National Forest",
+            "Green Mountain and Finger Lakes National Forests"
+        ]
+    },
+    "NM": {
+        "bounds": [
+            -109.050173,
+            31.332301,
+            -103.001964,
+            37.000232
+        ],
+        "forests": [
+            "Carson National Forest",
+            "Cibola National Forest",
+            "Coronado National Forest",
+            "Gila National Forest",
+            "Lincoln National Forest",
+            "Pike and San Isabel National Forests",
+            "Rio Grande National Forest",
+            "Santa Fe National Forest"
+        ]
+    },
+    "IN": {
+        "bounds": [
+            -88.097892,
+            37.771742,
+            -84.784579,
+            41.760592
+        ],
+        "forests": [
+            "Hoosier National Forest"
+        ]
+    },
+    "MS": {
+        "bounds": [
+            -91.655009,
+            30.175372,
+            -88.097888,
+            34.996052
+        ],
+        "forests": [
+            "National Forests in Mississippi"
+        ]
+    },
+    "NE": {
+        "bounds": [
+            -104.053514,
+            39.999998,
+            -95.30829,
+            43.001708
+        ],
+        "forests": [
+            "Arapaho and Roosevelt National Forests",
+            "Nebraska National Forest"
+        ]
+    },
+    "WV": {
+        "bounds": [
+            -82.644739,
+            37.201483,
+            -77.719519,
+            40.638801
+        ],
+        "forests": [
+            "George Washington and Jefferson National Forest",
+            "Monongahela National Forest",
+            "Wayne National Forest"
+        ]
+    },
+    "FL": {
+        "bounds": [
+            -87.634938,
+            24.521304,
+            -80.031362,
+            31.000888
+        ],
+        "forests": [
+            "National Forests in Florida"
+        ]
+    },
+    "MO": {
+        "bounds": [
+            -95.774704,
+            35.995683,
+            -89.098843,
+            40.61364
+        ],
+        "forests": [
+            "Mark Twain National Forest",
+            "Shawnee National Forest"
+        ]
+    },
+    "ME": {
+        "bounds": [
+            -71.083924,
+            42.977764,
+            -66.949895,
+            47.459686
+        ],
+        "forests": [
+            "White Mountain National Forest"
+        ]
+    },
+    "AR": {
+        "bounds": [
+            -94.617919,
+            33.004291,
+            -89.641003,
+            36.4996
+        ],
+        "forests": [
+            "Mark Twain National Forest",
+            "Ouachita National Forest",
+            "Ozark-St. Francis National Forest"
+        ]
+    },
+    "WI": {
+        "bounds": [
+            -92.888114,
+            42.491983,
+            -86.805415,
+            47.080621
+        ],
+        "forests": [
+            "Chequamegon-Nicolet National Forest",
+            "Ottawa National Forest"
+        ]
+    },
+    "NC": {
+        "bounds": [
+            -84.321869,
+            33.842316,
+            -75.460621,
+            36.588117
+        ],
+        "forests": [
+            "Chattahoochee-Oconee National Forests",
+            "Cherokee National Forest",
+            "Francis Marion and Sumter National Forests",
+            "George Washington and Jefferson National Forest",
+            "National Forests in North Carolina"
+        ]
+    },
+    "SD": {
+        "bounds": [
+            -104.057879,
+            42.479635,
+            -96.436589,
+            45.94545
+        ],
+        "forests": [
+            "Black Hills National Forest",
+            "Custer Gallatin National Forest",
+            "Dakota Prairie Grasslands",
+            "Nebraska National Forest"
+        ]
+    },
+    "OK": {
+        "bounds": [
+            -103.002565,
+            33.615833,
+            -94.430662,
+            37.002206
+        ],
+        "forests": [
+            "Cibola National Forest",
+            "National Forests in Texas",
+            "Ouachita National Forest",
+            "Ozark-St. Francis National Forest",
+            "Pike and San Isabel National Forests"
+        ]
+    },
+    "GA": {
+        "bounds": [
+            -85.605165,
+            30.357851,
+            -80.840378,
+            35.001244
+        ],
+        "forests": [
+            "Chattahoochee-Oconee National Forests",
+            "Cherokee National Forest",
+            "Francis Marion and Sumter National Forests",
+            "National Forests in Florida",
+            "National Forests in North Carolina"
+        ]
+    },
+    "ID": {
+        "bounds": [
+            -117.243027,
+            41.988209,
+            -111.043564,
+            49.000911
+        ],
+        "forests": [
+            "Bitterroot National Forest",
+            "Boise National Forest",
+            "Bridger-Teton National Forest",
+            "Caribou-Targhee National Forest",
+            "Colville National Forest",
+            "Custer Gallatin National Forest",
+            "Humboldt-Toiyabe National Forest",
+            "Idaho Panhandle National Forests",
+            "Kootenai National Forest",
+            "Lolo National Forest",
+            "Nez Perce-Clearwater National Forest",
+            "Payette National Forest",
+            "Salmon-Challis National Forest",
+            "Sawtooth National Forest",
+            "Uinta-Wasatch-Cache National Forest"
+        ]
+    },
+    "MN": {
+        "bounds": [
+            -97.239209,
+            43.499369,
+            -89.493977,
+            49.384358
+        ],
+        "forests": [
+            "Chippewa National Forest",
+            "Superior National Forest"
+        ]
+    },
+    "PA": {
+        "bounds": [
+            -80.519891,
+            39.7198,
+            -74.689516,
+            42.26986
+        ],
+        "forests": [
+            "Allegheny National Forest"
+        ]
+    },
+    "AK": {
+        "bounds": [
+            -179.146711,
+            51.215567,
+            179.77847011250077,
+            71.387815
+        ],
+        "forests": [
+            "Chugach National Forest",
+            "Tongass National Forest"
+        ]
+    },
+    "LA": {
+        "bounds": [
+            -94.043147,
+            28.928609,
+            -88.817017,
+            33.019457
+        ],
+        "forests": [
+            "Kisatchie National Forest",
+            "National Forests in Texas"
+        ]
+    },
+    "WY": {
+        "bounds": [
+            -111.054556,
+            40.994746,
+            -104.05216,
+            45.005815
+        ],
+        "forests": [
+            "Arapaho and Roosevelt National Forests",
+            "Ashley National Forest",
+            "Bighorn National Forest",
+            "Black Hills National Forest",
+            "Bridger-Teton National Forest",
+            "Caribou-Targhee National Forest",
+            "Custer Gallatin National Forest",
+            "Medicine Bow-Routt National Forest",
+            "Nebraska National Forest",
+            "Shoshone National Forest",
+            "Uinta-Wasatch-Cache National Forest"
+        ]
+    },
+    "MT": {
+        "bounds": [
+            -116.049155,
+            44.357962,
+            -104.039563,
+            49.00139
+        ],
+        "forests": [
+            "Bighorn National Forest",
+            "Bitterroot National Forest",
+            "Caribou-Targhee National Forest",
+            "Custer Gallatin National Forest",
+            "Dakota Prairie Grasslands",
+            "Flathead National Forest",
+            "Helena-Lewis and Clark National Forest",
+            "Idaho Panhandle National Forests",
+            "Kootenai National Forest",
+            "Lolo National Forest",
+            "Nez Perce-Clearwater National Forest",
+            "Salmon-Challis National Forest",
+            "Shoshone National Forest"
+        ]
+    },
+    "IL": {
+        "bounds": [
+            -91.513079,
+            36.970298,
+            -87.495199,
+            42.508481
+        ],
+        "forests": [
+            "Shawnee National Forest"
+        ]
+    },
+    "TN": {
+        "bounds": [
+            -90.310453,
+            34.982972,
+            -81.6469,
+            36.678118
+        ],
+        "forests": [
+            "Chattahoochee-Oconee National Forests",
+            "Cherokee National Forest",
+            "Daniel Boone National Forest",
+            "Land Between the Lakes National Recreation Area",
+            "National Forests in North Carolina"
+        ]
+    },
+    "MI": {
+        "bounds": [
+            -90.418136,
+            41.696118,
+            -82.413474,
+            48.2388
+        ],
+        "forests": [
+            "Chequamegon-Nicolet National Forest",
+            "Hiawatha National Forest",
+            "Huron-Manistee National Forest",
+            "Ottawa National Forest"
+        ]
+    },
+    "WA": {
+        "bounds": [
+            -124.763068,
+            45.543541,
+            -116.915989,
+            49.002494
+        ],
+        "forests": [
+            "Columbia River Gorge National Scenic Area",
+            "Colville National Forest",
+            "Gifford Pinchot National Forest",
+            "Idaho Panhandle National Forests",
+            "Mt. Baker-Snoqualmie National Forest",
+            "Okanogan-Wenatchee National Forest",
+            "Olympic National Forest",
+            "Umatilla National Forest"
+        ]
+    },
+    "NJ": {
+        "bounds": [
+            -75.559537,
+            38.928519,
+            -73.893628,
+            41.357423
+        ],
+        "forests": [
+            "Green Mountain and Finger Lakes National Forests"
+        ]
+    },
+    "MA": {
+        "bounds": [
+            -73.508142,
+            41.237964,
+            -69.928393,
+            42.886589
+        ],
+        "forests": [
+            "Green Mountain and Finger Lakes National Forests"
+        ]
+    },
+    "UT": {
+        "bounds": [
+            -114.052962,
+            36.997968,
+            -109.041058,
+            42.001702
+        ],
+        "forests": [
+            "Ashley National Forest",
+            "Caribou-Targhee National Forest",
+            "Dixie National Forest",
+            "Fishlake National Forest",
+            "Manti-La Sal National Forest",
+            "Sawtooth National Forest",
+            "Uinta-Wasatch-Cache National Forest"
+        ]
+    },
+    "VT": {
+        "bounds": [
+            -73.43774,
+            42.726853,
+            -71.464555,
+            45.016659
+        ],
+        "forests": [
+            "Green Mountain and Finger Lakes National Forests"
+        ]
+    },
+    "CO": {
+        "bounds": [
+            -109.060253,
+            36.992426,
+            -102.041524,
+            41.003444
+        ],
+        "forests": [
+            "Arapaho and Roosevelt National Forests",
+            "Carson National Forest",
+            "Grand Mesa, Uncompahgre and Gunnison National Forests",
+            "Manti-La Sal National Forest",
+            "Medicine Bow-Routt National Forest",
+            "Pike and San Isabel National Forests",
+            "Rio Grande National Forest",
+            "San Juan National Forest",
+            "White River National Forest"
+        ]
+    },
+    "SC": {
+        "bounds": [
+            -83.35391,
+            32.037593,
+            -78.547324,
+            35.215402
+        ],
+        "forests": [
+            "Chattahoochee-Oconee National Forests",
+            "Francis Marion and Sumter National Forests",
+            "National Forests in North Carolina"
+        ]
+    },
+    "VA": {
+        "bounds": [
+            -83.675395,
+            36.540738,
+            -75.242469,
+            39.466012
+        ],
+        "forests": [
+            "Cherokee National Forest",
+            "George Washington and Jefferson National Forest",
+            "Monongahela National Forest"
+        ]
+    },
+    "AZ": {
+        "bounds": [
+            -114.81651,
+            31.332177,
+            -109.045223,
+            37.00426
+        ],
+        "forests": [
+            "Coconino National Forest",
+            "Coronado National Forest",
+            "Gila National Forest",
+            "Kaibab National Forest",
+            "Prescott National Forest",
+            "Tonto National Forest"
+        ]
+    },
+    "KS": {
+        "bounds": [
+            -102.051744,
+            36.993016,
+            -94.588413,
+            40.003162
+        ],
+        "forests": [
+            "Pike and San Isabel National Forests"
+        ]
+    }
+}
