@@ -369,7 +369,8 @@
     // Populate State/Forest Dropdowns
     fetch('forests.json').then(r => r.json()).then(data => {
         allForests = data;
-        const states = [...new Set(data.map(f => f.state))].sort();
+        // Updated to use the .states property
+        const states = [...new Set(data.map(f => f.states))].sort();
         const stateSelect = document.getElementById('state-select');
         const forestSelect = document.getElementById('forest-select');
 
@@ -384,8 +385,8 @@
             // Clear current forests
             forestSelect.innerHTML = '<option value="" disabled selected>-- Select a Forest --</option>';
             
-            // Filter and append
-            allForests.filter(f => f.state === selectedState).forEach(f => {
+            // Filter and append using the .states property
+            allForests.filter(f => f.states === selectedState).forEach(f => {
                 const opt = document.createElement('option');
                 opt.value = JSON.stringify(f.bounds);
                 opt.dataset.roadFile = f.road_file;
