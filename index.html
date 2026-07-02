@@ -55,14 +55,18 @@
             width: 60px; height: 60px; border-radius: 4px; margin-bottom: 5px;
             border: 2px solid transparent; transition: border 0.2s;
             display: flex; align-items: center; justify-content: center; overflow: hidden;
-            background: #fff;
+            background: #eee;
         }
-        .basemap-option:hover .thumb { border-color: #2e7d32; }
         
-        /* Thumb Styles - The SVG colors are controlled here */
-        .thumb.streets { stroke: #666; fill: #ddd; }
-        .thumb.outdoor { stroke: #2e7d32; fill: #a5d6a7; }
-        .thumb.satellite { stroke: #455a64; fill: #263238; }
+        /* Thumbnail image styling */
+        .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures screenshots fill the box without stretching */
+            display: block;
+        }
+
+        .basemap-option:hover .thumb { border-color: #2e7d32; }
 
         /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
@@ -103,13 +107,16 @@
         </button>
         <div class="basemap-panel" id="basemap-panel">
             <div class="basemap-option" onclick="changeStyle('streets-v2')">
-                <div class="thumb streets"><svg viewBox="0 0 100 60"><path d="M 12,20 L 25,10 L 85,15 L 90,35 L 75,50 L 30,50 L 12,35 Z" stroke-width="3"/></svg></div>Streets
+                <div class="thumb"><img src="images/disperse_streets.png" alt="Streets"></div>
+                Streets
             </div>
             <div class="basemap-option" onclick="changeStyle('outdoor-v2')">
-                <div class="thumb outdoor"><svg viewBox="0 0 100 60"><path d="M 12,20 L 25,10 L 85,15 L 90,35 L 75,50 L 30,50 L 12,35 Z" stroke-width="3"/></svg></div>Outdoor
+                <div class="thumb"><img src="images/disperse_outdoor.png" alt="Outdoor"></div>
+                Outdoor
             </div>
             <div class="basemap-option" onclick="changeStyle('019e74c9-570e-7893-90e7-a01ec7d07286')">
-                <div class="thumb satellite"><svg viewBox="0 0 100 60"><path d="M 12,20 L 25,10 L 85,15 L 90,35 L 75,50 L 30,50 L 12,35 Z" stroke-width="3"/></svg></div>Satellite
+                <div class="thumb"><img src="images/disperse_satellite.png" alt="Satellite"></div>
+                Satellite
             </div>
         </div>
     </div>
@@ -145,7 +152,17 @@
 </div>
 
 <script>
+    // Global State Variables
     let mapTilerKey, sentinelInstanceId, sentinelLayerId, map;
+    let roadsVisible = false;
+    let boundaryVisible = false;
+    let currentRoadFile = null;
+    let currentBoundaryFile = null;
+    let currentBounds = null;
+    let currentForestName = null;
+    let fullRouteGeometry = null;
+    let lastRouteSteps = [];
+
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
