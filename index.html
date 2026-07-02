@@ -16,13 +16,17 @@
         #drawer-panel { position: absolute; top: 50px; left: 0; bottom: 0; width: 300px; background: white; z-index: 20; box-shadow: 2px 0 10px rgba(0,0,0,0.1); overflow-y: auto; transition: transform 0.3s ease; }
         #map { position: absolute; top: 50px; left: 0; width: 100%; bottom: 0; }
 
-        /* Basemap Control */
-        #basemap-control { position: absolute; top: 60px; right: 10px; z-index: 10; }
-        .map-fab { width: 40px; height: 40px; background: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
-        .basemap-panel { display: none; position: absolute; right: 50px; top: 0; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); padding: 10px; gap: 10px; width: 160px; z-index: 1000; }
-        .basemap-panel.is-active { display: flex; flex-direction: column; }
-        .basemap-option { cursor: pointer; padding: 8px; border-bottom: 1px solid #eee; }
-        .basemap-option:hover { background: #f0f0f0; }
+        /* --- Basemap Control --- */
+        #basemap-control { display: flex; flex-direction: column; }
+        .map-fab { width: 29px; height: 29px; background: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; outline: none; position: relative; }
+        .map-fab .tooltip { position: absolute; right: 40px; top: 0px; background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+        .map-fab:hover .tooltip { opacity: 1; }
+        .basemap-panel { display: none; position: absolute; right: 40px; top: 0; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); padding: 10px; gap: 10px; width: 240px; z-index: 1000; }
+        .basemap-panel.is-active { display: flex; }
+        .basemap-option { flex: 1; cursor: pointer; text-align: center; font-size: 11px; }
+        .thumb { width: 60px; height: 60px; border-radius: 4px; margin-bottom: 5px; border: 2px solid transparent; background: #eee; }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .basemap-option:hover .thumb { border-color: #2e7d32; }
 
         /* Drawer UI */
         #drawer-handle { display: flex; position: absolute; top: 100px; left: 300px; z-index: 25; width: 25px; height: 60px; background: white; border: 1px solid #999; border-left: none; border-radius: 0 8px 8px 0; cursor: pointer; align-items: center; justify-content: center; transition: left 0.3s ease; }
@@ -40,13 +44,15 @@
 <div id="map-wrapper">
     <div id="header"><strong>Disperse</strong> National Forest Explorer</div>
     
-    <div id="basemap-control">
-        <button class="map-fab" id="basemap-trigger" onclick="document.getElementById('basemap-panel').classList.toggle('is-active')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4-8 4-8-4 8-4zM2 12l8 4 8-4M2 17l8 4 8-4"/></svg>
+    <!-- Basemap Control Container -->
+    <div id="basemap-control" class="maplibregl-ctrl maplibregl-ctrl-group">
+        <button class="map-fab" id="basemap-trigger">
+            <span class="tooltip">Base Map</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4-8 4-8-4 8-4zM2 12l8 4 8-4M2 17l8 4 8-4"/></svg>
         </button>
         <div class="basemap-panel" id="basemap-panel">
-            <div class="basemap-option" onclick="changeStyle('streets-v2')">Streets</div>
-            <div class="basemap-option" onclick="changeStyle('outdoor-v2')">Outdoor</div>
+            <div class="basemap-option" onclick="changeStyle('streets-v2')"><div class="thumb"></div>Streets</div>
+            <div class="basemap-option" onclick="changeStyle('outdoor-v2')"><div class="thumb"></div>Outdoor</div>
         </div>
     </div>
     
@@ -79,12 +85,19 @@
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
+    // Custom Control for Basemap
+    class BasemapControl {
+        onAdd(map) { this.container = document.getElementById('basemap-control'); return this.container; }
+        onRemove() { this.container.parentNode.removeChild(this.container); }
+    }
+
     function toggleDrawer() { document.getElementById('map-wrapper').classList.toggle('menu-closed'); setTimeout(() => map.resize(), 300); }
     function openTab(tab) { document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none'; document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none'; map.resize(); }
     
     function changeStyle(styleId) {
         map.setStyle(`https://api.maptiler.com/maps/${styleId}/style.json?key=${mapTilerKey}`);
         document.getElementById('basemap-panel').classList.remove('is-active');
+        map.once('idle', () => { syncRoads(); syncBoundary(); });
     }
 
     function syncRoads() {
@@ -125,7 +138,19 @@
     async function initApp() {
         const config = await fetch('/api/get-config').then(r => r.json());
         mapTilerKey = config.mapTilerKey;
+        
         map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
+
+        // Add Controls
+        map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.addControl(new BasemapControl(), 'top-right');
+
+        // Basemap UI Event
+        document.getElementById('basemap-trigger').addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.getElementById('basemap-panel').classList.toggle('is-active');
+        });
 
         const response = await fetch('forests.json');
         allForests = await response.json();
@@ -143,7 +168,7 @@
             const opt = document.createElement('option'); opt.value = s; opt.text = s; stateSelect.appendChild(opt);
         });
 
-        // State Change Event
+        // State Change
         stateSelect.addEventListener('change', (e) => {
             currentMode = 'state';
             const selectedState = e.target.value;
@@ -152,7 +177,6 @@
                 return sArr.includes(selectedState);
             });
             
-            // Calculate and fit bounds
             if (activeForests.length > 0) {
                 let minLon = 180, minLat = 90, maxLon = -180, maxLat = -90;
                 activeForests.forEach(f => {
@@ -165,28 +189,23 @@
                 map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 50 });
             }
 
-            // Force enable boundaries
             boundaryVisible = true;
-            
-            // Re-populate forest dropdown
             forestSelect.innerHTML = '<option value="" selected>-- Select a Forest --</option>';
             activeForests.forEach((f, idx) => {
                 const opt = document.createElement('option'); opt.value = idx; opt.text = f.name; forestSelect.appendChild(opt);
             });
 
-            syncBoundary(); 
-            syncRoads();
+            syncBoundary(); syncRoads();
         });
 
-        // Forest Change Event
+        // Forest Change
         forestSelect.addEventListener('change', (e) => {
             if (e.target.value === "") return;
             currentMode = 'forest';
             selectedForest = activeForests[parseInt(e.target.value)];
             const b = selectedForest.bounds;
             map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 50 });
-            syncBoundary();
-            syncRoads();
+            syncBoundary(); syncRoads();
         });
 
         document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; syncRoads(); });
