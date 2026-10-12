@@ -1,9 +1,18 @@
 // api/satellite-image.js
 // Fetches a Sentinel-2 snapshot of a map extent and streams it back as a JPEG.
+// The extent arrives as lon/lat; the image is rendered in Web Mercator to match the map.
 import { getAccessToken } from '../lib/copernicus.js';
 
 const MAX_SPAN_DEG = 2;   // larger extents exceed Sentinel Hub's resolution limit and waste quota
 const MAX_SIZE_PX = 1024;
+const MAX_LAT = 85;       // Web Mercator is undefined at the poles
+const HALF_CIRCUMFERENCE_M = 20037508.342789244;
+
+function toWebMercator(lng, lat) {
+  const x = lng * HALF_CIRCUMFERENCE_M / 180;
+  const y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * HALF_CIRCUMFERENCE_M / Math.PI;
+  return [x, y];
+}
 
 export default async function handler(req, res) {
   const bbox = String(req.query.bbox || '').split(',').map(Number);
@@ -13,7 +22,7 @@ export default async function handler(req, res) {
 
   const [west, south, east, north] = bbox;
   if (bbox.length !== 4 || !bbox.every(Number.isFinite) || west >= east || south >= north ||
-      west < -180 || east > 180 || south < -90 || north > 90) {
+      west < -180 || east > 180 || south < -MAX_LAT || north > MAX_LAT) {
     return res.status(400).json({ error: 'Invalid map extent' });
   }
   if (east - west > MAX_SPAN_DEG || north - south > MAX_SPAN_DEG) {
@@ -28,11 +37,13 @@ export default async function handler(req, res) {
 
   try {
     const token = await getAccessToken();
-    // WMS 1.1.1 takes SRS (not CRS) and lon/lat axis order for EPSG:4326
+    const [minX, minY] = toWebMercator(west, south);
+    const [maxX, maxY] = toWebMercator(east, north);
+    // WMS 1.1.1 takes SRS (not CRS)
     const params = new URLSearchParams({
       SERVICE: 'WMS', VERSION: '1.1.1', REQUEST: 'GetMap',
       LAYERS: process.env.SENTINEL_LAYER_ID, STYLES: '',
-      SRS: 'EPSG:4326', BBOX: bbox.join(','),
+      SRS: 'EPSG:3857', BBOX: [minX, minY, maxX, maxY].join(','),
       WIDTH: String(width), HEIGHT: String(height),
       FORMAT: 'image/jpeg', TIME: `${date}/${date}`,
       access_token: token

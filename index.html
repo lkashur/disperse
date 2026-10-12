@@ -33,6 +33,21 @@
         .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .basemap-option:hover .thumb { border-color: #2e7d32; }
 
+        /* --- Satellite Control --- */
+        .map-fab.is-on { background: #e8f5e9; color: #2e7d32; }
+        .map-fab.is-disabled { cursor: not-allowed; color: #bbb; }
+        .satellite-panel { display: none; position: absolute; right: 40px; top: 0; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); padding: 10px; width: 240px; z-index: 1000; font-size: 12px; }
+        .satellite-panel.is-active { display: block; }
+        .sat-nav { display: flex; align-items: center; gap: 6px; }
+        .sat-nav button { width: 28px; padding: 4px; margin: 0; flex: none; }
+        .sat-nav button:disabled { cursor: default; opacity: 0.4; }
+        .sat-label { flex: 1; text-align: center; font-weight: bold; color: #333; }
+        .sat-opacity { display: block; margin-top: 8px; color: #555; }
+        .sat-opacity input { width: 100%; }
+        .satellite-panel .sat-refresh { margin: 8px 0 0; padding: 6px; }
+        .sat-status { color: #b71c1c; margin-top: 6px; }
+        .sat-status:empty { display: none; }
+
         /* Fullscreen Overrides */
         #map-wrapper:fullscreen #header { display: none; }
         #map-wrapper:fullscreen #drawer-panel { top: 0; }
@@ -87,6 +102,23 @@
         </div>
     </div>
     
+    <div id="satellite-control" class="maplibregl-ctrl maplibregl-ctrl-group">
+        <button class="map-fab" id="satellite-trigger">
+            <span class="tooltip" id="satellite-tooltip">Recent satellite image</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg>
+        </button>
+        <div class="satellite-panel" id="satellite-panel">
+            <div class="sat-nav">
+                <button id="sat-older" title="Older image">◀</button>
+                <span class="sat-label" id="sat-label"></span>
+                <button id="sat-newer" title="Newer image">▶</button>
+            </div>
+            <label class="sat-opacity">Opacity <input type="range" id="sat-opacity" min="0" max="100" value="100"></label>
+            <button id="sat-refresh" class="sat-refresh">Refresh for this view</button>
+            <div class="sat-status" id="sat-status"></div>
+        </div>
+    </div>
+
     <div id="drawer-panel">
         <div class="tab-bar">
             <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
@@ -105,11 +137,6 @@
             <hr>
             <button id="toggle-roads">Toggle MVUM Roads</button>
             <button id="toggle-boundary">Toggle Forest Boundary</button>
-            <hr>
-            <button id="btn-fetch-dates" style="background: #0d47a1; color: white;">Load Satellite Dates</button>
-            <select id="date-select" style="display:none"></select>
-            <button id="btn-view-snapshot" style="background: #2e7d32; color: white; display: none;">View Selected Date</button>
-            <div id="satellite-status" style="font-size: 12px; color: #b71c1c;"></div>
         </div>
 
         <div id="road-pane" class="tab-content" style="display:none;">
@@ -119,10 +146,6 @@
     
     <div id="drawer-handle" onclick="toggleDrawer()">⋮</div>
     <div id="map"></div>
-</div>
-
-<div id="image-modal" onclick="this.style.display='none'" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; cursor:pointer;">
-    <img id="modal-img" style="max-width:90%; max-height:85%; border:4px solid white;">
 </div>
 
 <script>
@@ -140,8 +163,10 @@
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    class BasemapControl {
-        onAdd(map) { this.container = document.getElementById('basemap-control'); return this.container; }
+    // Wraps an existing DOM element as a MapLibre control
+    class DomControl {
+        constructor(id) { this.id = id; }
+        onAdd(map) { this.container = document.getElementById(this.id); return this.container; }
         onRemove() { this.container.parentNode.removeChild(this.container); }
     }
 
@@ -161,50 +186,127 @@
 
     function changeStyle(val) {
         map.setStyle(`https://api.maptiler.com/maps/${val}/style.json?key=${mapTilerKey}`);
-        map.once('idle', () => { updateTerrain(val); refreshLayers(); });
+        map.once('idle', () => { updateTerrain(val); refreshLayers(); addSatelliteLayer(); });
     }
 
-    // --- Satellite Functions (Copernicus calls run server-side in /api) ---
+    // --- Satellite Overlay (Copernicus calls run server-side in /api) ---
     const MAX_SNAPSHOT_PX = 1024;
+    const MAX_SATELLITE_SPAN_DEG = 2; // matches the limit in api/satellite-image.js
+    const SAT_LAYER = 'satellite-overlay';
+    let satActive = false;
+    let satDates = [];
+    let satIndex = 0;
+    let satView = null;   // { bounds, width, height } the snapshot covers; kept while stepping dates
+    let satImage = null;  // { url, coordinates } currently on the map
+    let satRequestId = 0; // discards responses that a newer request has superseded
 
-    function setSatelliteStatus(msg) { document.getElementById('satellite-status').innerText = msg || ''; }
+    function viewTooWide() {
+        const b = map.getBounds();
+        return b.getEast() - b.getWest() > MAX_SATELLITE_SPAN_DEG || b.getNorth() - b.getSouth() > MAX_SATELLITE_SPAN_DEG;
+    }
 
-    async function fetchAvailableDates() {
-        const dateSelect = document.getElementById('date-select');
-        const viewBtn = document.getElementById('btn-view-snapshot');
-        dateSelect.innerHTML = '<option>Searching...</option>'; dateSelect.style.display = 'block';
-        viewBtn.style.display = 'none'; setSatelliteStatus();
+    function updateSatelliteAvailability() {
+        const tooWide = viewTooWide();
+        document.getElementById('satellite-trigger').classList.toggle('is-disabled', tooWide && !satActive);
+        document.getElementById('satellite-tooltip').innerText = tooWide && !satActive ? 'Zoom in to view satellite imagery' : 'Recent satellite image';
+        const refresh = document.getElementById('sat-refresh');
+        refresh.disabled = tooWide;
+        refresh.innerText = tooWide ? 'Zoom in to refresh' : 'Refresh for this view';
+    }
+
+    function setSatStatus(msg) { document.getElementById('sat-status').innerText = msg || ''; }
+    // Cloud cover is for the whole ~110 km Sentinel-2 scene, so keep the wording loose
+    function cloudLabel(c) { return c <= 10 ? '☀️ Clear' : c <= 25 ? '🌤 Mostly clear' : '⛅ Partly cloudy'; }
+
+    function renderSatNav(loading) {
+        const d = satDates[satIndex];
+        document.getElementById('sat-label').innerText = loading ? 'Loading…' : d ? `${d.date} · ${cloudLabel(d.cloudCover)}` : 'No image';
+        document.getElementById('sat-older').disabled = loading || satIndex >= satDates.length - 1;
+        document.getElementById('sat-newer').disabled = loading || satIndex <= 0;
+    }
+
+    // Size the snapshot to the view's Web Mercator shape so it lines up with the map
+    function currentSatView() {
+        const b = map.getBounds();
+        const bounds = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+        const nw = maplibregl.MercatorCoordinate.fromLngLat([bounds[0], bounds[3]]);
+        const se = maplibregl.MercatorCoordinate.fromLngLat([bounds[2], bounds[1]]);
+        const aspect = (se.x - nw.x) / (se.y - nw.y);
+        const width = aspect >= 1 ? MAX_SNAPSHOT_PX : Math.max(1, Math.round(MAX_SNAPSHOT_PX * aspect));
+        const height = aspect >= 1 ? Math.max(1, Math.round(MAX_SNAPSHOT_PX / aspect)) : MAX_SNAPSHOT_PX;
+        return { bounds, width, height };
+    }
+
+    function addSatelliteLayer() {
+        if (!satActive || !satImage) return;
+        if (map.getSource(SAT_LAYER)) return map.getSource(SAT_LAYER).updateImage(satImage);
+        // Insert below forest boundaries and roads so they stay visible on top
+        const firstForestLayer = map.getStyle().layers.find(l => l.id.startsWith('boundary-') || l.id.startsWith('road-'));
+        map.addSource(SAT_LAYER, { type: 'image', ...satImage });
+        map.addLayer({ id: SAT_LAYER, type: 'raster', source: SAT_LAYER, paint: { 'raster-opacity': document.getElementById('sat-opacity').value / 100, 'raster-fade-duration': 0 } }, firstForestLayer && firstForestLayer.id);
+    }
+
+    function clearSatelliteImage() {
+        if (map.getLayer(SAT_LAYER)) map.removeLayer(SAT_LAYER);
+        if (map.getSource(SAT_LAYER)) map.removeSource(SAT_LAYER);
+        if (satImage) URL.revokeObjectURL(satImage.url);
+        satImage = null;
+    }
+
+    async function loadSatelliteImage() {
+        const requestId = ++satRequestId;
+        const { bounds, width, height } = satView;
+        const [w, s, e, n] = bounds;
+        renderSatNav(true); setSatStatus();
+        try {
+            const response = await fetch(`/api/satellite-image?bbox=${bounds.join(',')}&date=${satDates[satIndex].date}&width=${width}&height=${height}`);
+            if (!response.ok) throw new Error((await response.json()).error);
+            const blob = await response.blob();
+            if (requestId !== satRequestId) return;
+            const oldUrl = satImage && satImage.url;
+            satImage = { url: URL.createObjectURL(blob), coordinates: [[w, n], [e, n], [e, s], [w, s]] };
+            addSatelliteLayer();
+            if (oldUrl) URL.revokeObjectURL(oldUrl);
+        } catch (err) {
+            if (requestId === satRequestId) setSatStatus(err.message || 'Could not load image');
+        }
+        if (requestId === satRequestId) renderSatNav(false);
+    }
+
+    // Finds dates for the current view and shows the newest clear one
+    async function refreshSatellite() {
+        if (viewTooWide()) return setSatStatus('Zoom in to view satellite imagery');
+        const requestId = ++satRequestId;
+        clearSatelliteImage();
+        satDates = []; satIndex = 0; satView = currentSatView();
+        renderSatNav(true); setSatStatus();
         const center = map.getCenter();
         try {
             const response = await fetch(`/api/satellite-dates?lng=${center.lng}&lat=${center.lat}`);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
-            dateSelect.innerHTML = '';
-            if (data.dates.length === 0) return dateSelect.innerHTML = '<option>No clear imagery in the last 90 days</option>';
-            data.dates.forEach(d => { const opt = document.createElement('option'); opt.value = d.date; opt.innerText = `${d.date} (${d.cloudCover}% cloud)`; dateSelect.appendChild(opt); });
-            viewBtn.style.display = 'block';
-        } catch (e) { dateSelect.innerHTML = '<option>Error loading dates</option>'; }
+            if (requestId !== satRequestId) return;
+            satDates = data.dates;
+            if (satDates.length === 0) { renderSatNav(false); return setSatStatus('No clear imagery here in the last 90 days'); }
+            loadSatelliteImage();
+        } catch (err) {
+            if (requestId === satRequestId) { renderSatNav(false); setSatStatus(err.message || 'Could not load dates'); }
+        }
     }
 
-    async function loadSatellitePreview() {
-        const selectedDate = document.getElementById('date-select').value;
-        const bounds = map.getBounds();
-        const bbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(',');
-        // Match the map's shape so the snapshot isn't stretched
-        const canvas = map.getCanvas();
-        const scale = MAX_SNAPSHOT_PX / Math.max(canvas.clientWidth, canvas.clientHeight);
-        const width = Math.round(canvas.clientWidth * scale), height = Math.round(canvas.clientHeight * scale);
+    function stepSatellite(delta) {
+        satIndex = Math.min(Math.max(satIndex + delta, 0), satDates.length - 1);
+        loadSatelliteImage();
+    }
 
-        setSatelliteStatus('Loading snapshot...');
-        try {
-            const response = await fetch(`/api/satellite-image?bbox=${bbox}&date=${selectedDate}&width=${width}&height=${height}`);
-            if (!response.ok) throw new Error((await response.json()).error);
-            const img = document.getElementById('modal-img');
-            if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-            img.src = URL.createObjectURL(await response.blob());
-            document.getElementById('image-modal').style.display = 'flex';
-            setSatelliteStatus();
-        } catch (e) { setSatelliteStatus(e.message || 'Could not load snapshot'); }
+    function toggleSatellite() {
+        if (!satActive && viewTooWide()) return;
+        satActive = !satActive;
+        document.getElementById('satellite-panel').classList.toggle('is-active', satActive);
+        document.getElementById('satellite-trigger').classList.toggle('is-on', satActive);
+        if (satActive) refreshSatellite();
+        else { satRequestId++; clearSatelliteImage(); satDates = []; setSatStatus(); }
+        updateSatelliteAvailability();
     }
 
     function updateTerrain(styleVal) {
@@ -348,7 +450,8 @@
         
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
-        map.addControl(new BasemapControl(), 'top-right');
+        map.addControl(new DomControl('basemap-control'), 'top-right');
+        map.addControl(new DomControl('satellite-control'), 'top-right');
 
         // Basemap Logic
         const trigger = document.getElementById('basemap-trigger');
@@ -356,8 +459,14 @@
         trigger.addEventListener('click', (e) => { e.stopPropagation(); panel.classList.toggle('is-active'); });
         map.on('click', () => { if (panel.classList.contains('is-active')) panel.classList.remove('is-active'); });
         
-        document.getElementById('btn-fetch-dates').addEventListener('click', fetchAvailableDates);
-        document.getElementById('btn-view-snapshot').addEventListener('click', loadSatellitePreview);
+        // Satellite Logic
+        document.getElementById('satellite-trigger').addEventListener('click', toggleSatellite);
+        document.getElementById('sat-older').addEventListener('click', () => stepSatellite(1));
+        document.getElementById('sat-newer').addEventListener('click', () => stepSatellite(-1));
+        document.getElementById('sat-refresh').addEventListener('click', refreshSatellite);
+        document.getElementById('sat-opacity').addEventListener('input', (e) => { if (map.getLayer(SAT_LAYER)) map.setPaintProperty(SAT_LAYER, 'raster-opacity', e.target.value / 100); });
+        map.on('load', updateSatelliteAvailability);
+        map.on('moveend', updateSatelliteAvailability);
         document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; refreshLayers(); });
         document.getElementById('toggle-boundary').addEventListener('click', () => { boundaryVisible = !boundaryVisible; refreshLayers(); });
         
