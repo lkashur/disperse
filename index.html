@@ -42,7 +42,11 @@
         .sat-nav button { width: 28px; padding: 4px; margin: 0; flex: none; }
         .sat-nav button:disabled { cursor: default; opacity: 0.4; }
         .sat-label { flex: 1; text-align: center; font-weight: bold; color: #333; }
+        .sat-hint { text-align: center; color: #777; margin-top: 4px; }
+        .sat-hint:empty { display: none; }
         .sat-opacity { display: block; margin-top: 8px; color: #555; }
+        .sat-check { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: #555; }
+        .sat-check input { margin: 0; }
         .sat-opacity input { width: 100%; }
         .satellite-panel .sat-refresh { margin: 8px 0 0; padding: 6px; }
         .sat-status { color: #b71c1c; margin-top: 6px; }
@@ -113,7 +117,9 @@
                 <span class="sat-label" id="sat-label"></span>
                 <button id="sat-newer" title="Newer image">▶</button>
             </div>
+            <div class="sat-hint" id="sat-hint"></div>
             <label class="sat-opacity">Opacity <input type="range" id="sat-opacity" min="0" max="100" value="100"></label>
+            <label class="sat-check"><input type="checkbox" id="sat-outlines"> Show pass outlines</label>
             <button id="sat-refresh" class="sat-refresh">Refresh for this view</button>
             <div class="sat-status" id="sat-status"></div>
         </div>
@@ -191,14 +197,19 @@
 
     // --- Satellite Overlay (Copernicus calls run server-side in /api) ---
     const MAX_SNAPSHOT_PX = 1024;
-    const MAX_SATELLITE_SPAN_DEG = 2; // matches the limit in api/satellite-image.js
+    const MAX_SATELLITE_SPAN_DEG = 2; // matches the limit in api/satellite-*.js
     const SAT_LAYER = 'satellite-overlay';
+    const SAT_OUTLINES = 'satellite-outlines';
+    const DAY_MS = 24 * 60 * 60 * 1000;
     let satActive = false;
-    let satDates = [];
+    let satDates = [];      // mosaic end dates, newest first
+    let satScenes = [];     // { datetime, cloudCover, geometry } for every scene the mosaics can use
+    let satMosaicDays = 0;
     let satIndex = 0;
-    let satView = null;   // { bounds, width, height } the snapshot covers; kept while stepping dates
-    let satImage = null;  // { url, coordinates } currently on the map
-    let satRequestId = 0; // discards responses that a newer request has superseded
+    let satView = null;     // { bounds, width, height } the snapshot covers; kept while stepping dates
+    let satImage = null;    // { url, coordinates } currently on the map
+    let satPopup = null;
+    let satRequestId = 0;   // discards responses that a newer request has superseded
 
     function viewTooWide() {
         const b = map.getBounds();
@@ -215,12 +226,21 @@
     }
 
     function setSatStatus(msg) { document.getElementById('sat-status').innerText = msg || ''; }
-    // Cloud cover is for the whole ~110 km Sentinel-2 scene, so keep the wording loose
-    function cloudLabel(c) { return c <= 10 ? '☀️ Clear' : c <= 25 ? '🌤 Mostly clear' : '⛅ Partly cloudy'; }
+
+    // Same inclusive day window the server mosaics: the end date plus satMosaicDays before it
+    function mosaicStartDate(endDate) { return new Date(Date.parse(`${endDate}T00:00:00Z`) - satMosaicDays * DAY_MS).toISOString().slice(0, 10); }
+
+    function mosaicScenes() {
+        const end = satDates[satIndex];
+        if (!end) return [];
+        const start = mosaicStartDate(end);
+        return satScenes.filter(s => { const d = s.datetime.slice(0, 10); return d >= start && d <= end; });
+    }
 
     function renderSatNav(loading) {
-        const d = satDates[satIndex];
-        document.getElementById('sat-label').innerText = loading ? 'Loading…' : d ? `${d.date} · ${cloudLabel(d.cloudCover)}` : 'No image';
+        const end = satDates[satIndex];
+        document.getElementById('sat-label').innerText = loading ? 'Loading…' : end ? `Up to ${end}` : 'No image';
+        document.getElementById('sat-hint').innerText = !loading && end ? `Mosaic from ${mosaicStartDate(end)} · tap the image for exact dates` : '';
         document.getElementById('sat-older').disabled = loading || satIndex >= satDates.length - 1;
         document.getElementById('sat-newer').disabled = loading || satIndex <= 0;
     }
@@ -237,29 +257,89 @@
         return { bounds, width, height };
     }
 
-    function addSatelliteLayer() {
-        if (!satActive || !satImage) return;
-        if (map.getSource(SAT_LAYER)) return map.getSource(SAT_LAYER).updateImage(satImage);
-        // Insert below forest boundaries and roads so they stay visible on top
-        const firstForestLayer = map.getStyle().layers.find(l => l.id.startsWith('boundary-') || l.id.startsWith('road-'));
-        map.addSource(SAT_LAYER, { type: 'image', ...satImage });
-        map.addLayer({ id: SAT_LAYER, type: 'raster', source: SAT_LAYER, paint: { 'raster-opacity': document.getElementById('sat-opacity').value / 100, 'raster-fade-duration': 0 } }, firstForestLayer && firstForestLayer.id);
+    // Insert satellite layers below forest boundaries and roads so those stay visible on top
+    function firstForestLayerId() {
+        const l = map.getStyle().layers.find(l => l.id.startsWith('boundary-') || l.id.startsWith('road-'));
+        return l && l.id;
     }
 
+    function addSatelliteLayer() {
+        if (!satActive || !satImage) return;
+        if (map.getSource(SAT_LAYER)) map.getSource(SAT_LAYER).updateImage(satImage);
+        else {
+            map.addSource(SAT_LAYER, { type: 'image', ...satImage });
+            map.addLayer({ id: SAT_LAYER, type: 'raster', source: SAT_LAYER, paint: { 'raster-opacity': document.getElementById('sat-opacity').value / 100, 'raster-fade-duration': 0 } }, firstForestLayerId());
+        }
+        updateSatelliteOutlines();
+    }
+
+    // Outlines of the scenes in the current mosaic, one colour per capture date
+    function updateSatelliteOutlines() {
+        const show = satActive && satImage && document.getElementById('sat-outlines').checked;
+        if (!show) {
+            if (map.getLayer(`${SAT_OUTLINES}-label`)) map.removeLayer(`${SAT_OUTLINES}-label`);
+            if (map.getLayer(SAT_OUTLINES)) map.removeLayer(SAT_OUTLINES);
+            if (map.getSource(SAT_OUTLINES)) map.removeSource(SAT_OUTLINES);
+            return;
+        }
+        const scenes = mosaicScenes();
+        const days = [...new Set(scenes.map(s => s.datetime.slice(0, 10)))].sort((a, b) => b.localeCompare(a));
+        const data = { type: 'FeatureCollection', features: scenes.map(s => {
+            const day = s.datetime.slice(0, 10);
+            return { type: 'Feature', geometry: s.geometry, properties: { label: day, color: B_COLORS[days.indexOf(day) % B_COLORS.length] } };
+        }) };
+        if (map.getSource(SAT_OUTLINES)) return map.getSource(SAT_OUTLINES).setData(data);
+        map.addSource(SAT_OUTLINES, { type: 'geojson', data });
+        map.addLayer({ id: SAT_OUTLINES, type: 'line', source: SAT_OUTLINES, paint: { 'line-color': ['get', 'color'], 'line-width': 2 } }, firstForestLayerId());
+        map.addLayer({ id: `${SAT_OUTLINES}-label`, type: 'symbol', source: SAT_OUTLINES, layout: { 'symbol-placement': 'line', 'text-field': ['get', 'label'], 'text-size': 12 }, paint: { 'text-color': ['get', 'color'], 'text-halo-color': '#fff', 'text-halo-width': 2 } }, firstForestLayerId());
+    }
+
+    function closeSatPopup() { if (satPopup) { satPopup.remove(); satPopup = null; } }
+
     function clearSatelliteImage() {
+        closeSatPopup();
         if (map.getLayer(SAT_LAYER)) map.removeLayer(SAT_LAYER);
         if (map.getSource(SAT_LAYER)) map.removeSource(SAT_LAYER);
         if (satImage) URL.revokeObjectURL(satImage.url);
         satImage = null;
+        updateSatelliteOutlines();
+    }
+
+    // Ray casting; the first ring is the outer boundary, the rest are holes
+    function pointInRing([x, y], ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const [xi, yi] = ring[i], [xj, yj] = ring[j];
+            if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+        }
+        return inside;
+    }
+    function pointInGeometry(pt, g) {
+        const polygons = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+        return polygons.some(([outer, ...holes]) => pointInRing(pt, outer) && !holes.some(h => pointInRing(pt, h)));
+    }
+
+    // The mosaic shows the newest scene covering each point, so that scene is the pixel's source
+    function showSatelliteDateAt(e) {
+        if (!satActive || !satImage) return;
+        const [w, s, east, n] = satView.bounds;
+        const { lng, lat } = e.lngLat;
+        if (lng < w || lng > east || lat < s || lat > n) return;
+        const scene = mosaicScenes().filter(sc => pointInGeometry([lng, lat], sc.geometry)).sort((a, b) => b.datetime.localeCompare(a.datetime))[0];
+        const html = scene
+            ? `<strong>Captured ${scene.datetime.slice(0, 10)} ${scene.datetime.slice(11, 16)} UTC</strong><br><span style="color:#777">Scene cloud cover ${scene.cloudCover}%</span>`
+            : '<strong>No imagery at this spot</strong>';
+        closeSatPopup();
+        satPopup = new maplibregl.Popup({ maxWidth: '240px' }).setLngLat(e.lngLat).setHTML(html).addTo(map);
     }
 
     async function loadSatelliteImage() {
         const requestId = ++satRequestId;
         const { bounds, width, height } = satView;
         const [w, s, e, n] = bounds;
-        renderSatNav(true); setSatStatus();
+        closeSatPopup(); renderSatNav(true); setSatStatus();
         try {
-            const response = await fetch(`/api/satellite-image?bbox=${bounds.join(',')}&date=${satDates[satIndex].date}&width=${width}&height=${height}`);
+            const response = await fetch(`/api/satellite-image?bbox=${bounds.join(',')}&date=${satDates[satIndex]}&width=${width}&height=${height}`);
             if (!response.ok) throw new Error((await response.json()).error);
             const blob = await response.blob();
             if (requestId !== satRequestId) return;
@@ -273,20 +353,19 @@
         if (requestId === satRequestId) renderSatNav(false);
     }
 
-    // Finds dates for the current view and shows the newest clear one
+    // Finds dates for the current view and shows the newest mosaic
     async function refreshSatellite() {
         if (viewTooWide()) return setSatStatus('Zoom in to view satellite imagery');
         const requestId = ++satRequestId;
         clearSatelliteImage();
-        satDates = []; satIndex = 0; satView = currentSatView();
+        satDates = []; satScenes = []; satIndex = 0; satView = currentSatView();
         renderSatNav(true); setSatStatus();
-        const center = map.getCenter();
         try {
-            const response = await fetch(`/api/satellite-dates?lng=${center.lng}&lat=${center.lat}`);
+            const response = await fetch(`/api/satellite-dates?bbox=${satView.bounds.join(',')}`);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
             if (requestId !== satRequestId) return;
-            satDates = data.dates;
+            satDates = data.dates; satScenes = data.scenes; satMosaicDays = data.mosaicDays;
             if (satDates.length === 0) { renderSatNav(false); return setSatStatus('No clear imagery here in the last 90 days'); }
             loadSatelliteImage();
         } catch (err) {
@@ -305,7 +384,7 @@
         document.getElementById('satellite-panel').classList.toggle('is-active', satActive);
         document.getElementById('satellite-trigger').classList.toggle('is-on', satActive);
         if (satActive) refreshSatellite();
-        else { satRequestId++; clearSatelliteImage(); satDates = []; setSatStatus(); }
+        else { satRequestId++; clearSatelliteImage(); satDates = []; satScenes = []; setSatStatus(); }
         updateSatelliteAvailability();
     }
 
@@ -430,16 +509,17 @@
     function handleRoadClick(e) {
         // Global click events carry no features, so query the road layers under the click point
         const roadLayers = map.getStyle().layers.map(l => l.id).filter(id => id.startsWith('road-core-'));
-        if (roadLayers.length === 0) return;
+        if (roadLayers.length === 0) return false;
         const box = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
         const feature = map.queryRenderedFeatures(box, { layers: roadLayers })[0];
-        if (!feature) return;
+        if (!feature) return false;
 
         if (roadMarker) roadMarker.setLngLat(e.lngLat);
         else roadMarker = new maplibregl.Marker({ color: '#2e7d32' }).setLngLat(e.lngLat).addTo(map);
 
         renderRoadCard(feature.properties, e.lngLat);
         openTab('road');
+        return true;
     }
 
     async function initApp() {
@@ -465,6 +545,7 @@
         document.getElementById('sat-newer').addEventListener('click', () => stepSatellite(-1));
         document.getElementById('sat-refresh').addEventListener('click', refreshSatellite);
         document.getElementById('sat-opacity').addEventListener('input', (e) => { if (map.getLayer(SAT_LAYER)) map.setPaintProperty(SAT_LAYER, 'raster-opacity', e.target.value / 100); });
+        document.getElementById('sat-outlines').addEventListener('change', updateSatelliteOutlines);
         map.on('load', updateSatelliteAvailability);
         map.on('moveend', updateSatelliteAvailability);
         document.getElementById('toggle-roads').addEventListener('click', () => { roadsVisible = !roadsVisible; refreshLayers(); });
@@ -504,7 +585,7 @@
             refreshLayers();
         });
 
-        map.on('click', handleRoadClick); // Global listener to handle dynamic layer IDs
+        map.on('click', (e) => { if (!handleRoadClick(e)) showSatelliteDateAt(e); }); // Global listener to handle dynamic layer IDs
     }
 
     initApp();
