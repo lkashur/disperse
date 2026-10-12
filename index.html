@@ -109,6 +109,7 @@
             <button id="btn-fetch-dates" style="background: #0d47a1; color: white;">Load Satellite Dates</button>
             <select id="date-select" style="display:none"></select>
             <button id="btn-view-snapshot" style="background: #2e7d32; color: white; display: none;">View Selected Date</button>
+            <div id="satellite-status" style="font-size: 12px; color: #b71c1c;"></div>
         </div>
 
         <div id="road-pane" class="tab-content" style="display:none;">
@@ -125,7 +126,7 @@
 </div>
 
 <script>
-    let mapTilerKey, sentinelInstanceId, sentinelLayerId, map, allForestData, allStatesData;
+    let mapTilerKey, map, allForestData, allStatesData;
     let roadsVisible = false;
     let boundaryVisible = false;
     let currentMode = 'state'; 
@@ -163,39 +164,47 @@
         map.once('idle', () => { updateTerrain(val); refreshLayers(); });
     }
 
-    // --- Satellite & API Functions ---
-    async function getAccessToken() { try { const r = await fetch('/api/get-token'); const d = await r.json(); return d.access_token; } catch (e) { return null; } }
+    // --- Satellite Functions (Copernicus calls run server-side in /api) ---
+    const MAX_SNAPSHOT_PX = 1024;
+
+    function setSatelliteStatus(msg) { document.getElementById('satellite-status').innerText = msg || ''; }
 
     async function fetchAvailableDates() {
         const dateSelect = document.getElementById('date-select');
         const viewBtn = document.getElementById('btn-view-snapshot');
         dateSelect.innerHTML = '<option>Searching...</option>'; dateSelect.style.display = 'block';
-        const token = await getAccessToken();
+        viewBtn.style.display = 'none'; setSatelliteStatus();
         const center = map.getCenter();
         try {
-            const response = await fetch('https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ bbox: [center.lng - 0.1, center.lat - 0.1, center.lng + 0.1, center.lat + 0.1], datetime: '2026-01-01T00:00:00Z/..', collections: ['sentinel-2-l2a'], limit: 10 })
-            });
+            const response = await fetch(`/api/satellite-dates?lng=${center.lng}&lat=${center.lat}`);
             const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
             dateSelect.innerHTML = '';
-            if (!data.features || data.features.length === 0) return dateSelect.innerHTML = '<option>No imagery found</option>';
-            const dates = [...new Set(data.features.map(f => f.properties.datetime.split('T')[0]))];
-            dates.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.innerText = d; dateSelect.appendChild(opt); });
+            if (data.dates.length === 0) return dateSelect.innerHTML = '<option>No clear imagery in the last 90 days</option>';
+            data.dates.forEach(d => { const opt = document.createElement('option'); opt.value = d.date; opt.innerText = `${d.date} (${d.cloudCover}% cloud)`; dateSelect.appendChild(opt); });
             viewBtn.style.display = 'block';
         } catch (e) { dateSelect.innerHTML = '<option>Error loading dates</option>'; }
     }
 
     async function loadSatellitePreview() {
         const selectedDate = document.getElementById('date-select').value;
-        const modal = document.getElementById('image-modal');
-        const token = await getAccessToken();
         const bounds = map.getBounds();
-        const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
-        const wmsUrl = `https://sh.dataspace.copernicus.eu/ogc/wms/${sentinelInstanceId}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=${sentinelLayerId}&STYLES=&WIDTH=1024&HEIGHT=1024&FORMAT=image/png&TRANSPARENT=true&BBOX=${bbox}&CRS=EPSG:4326&TIME=${selectedDate}/${selectedDate}&access_token=${token}`;
-        document.getElementById('modal-img').src = wmsUrl;
-        modal.style.display = 'flex';
+        const bbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].join(',');
+        // Match the map's shape so the snapshot isn't stretched
+        const canvas = map.getCanvas();
+        const scale = MAX_SNAPSHOT_PX / Math.max(canvas.clientWidth, canvas.clientHeight);
+        const width = Math.round(canvas.clientWidth * scale), height = Math.round(canvas.clientHeight * scale);
+
+        setSatelliteStatus('Loading snapshot...');
+        try {
+            const response = await fetch(`/api/satellite-image?bbox=${bbox}&date=${selectedDate}&width=${width}&height=${height}`);
+            if (!response.ok) throw new Error((await response.json()).error);
+            const img = document.getElementById('modal-img');
+            if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+            img.src = URL.createObjectURL(await response.blob());
+            document.getElementById('image-modal').style.display = 'flex';
+            setSatelliteStatus();
+        } catch (e) { setSatelliteStatus(e.message || 'Could not load snapshot'); }
     }
 
     function updateTerrain(styleVal) {
@@ -333,7 +342,7 @@
 
     async function initApp() {
         const config = await fetch('/api/get-config').then(r => r.json());
-        mapTilerKey = config.mapTilerKey; sentinelInstanceId = config.sentinelInstanceId; sentinelLayerId = config.sentinelLayerId;
+        mapTilerKey = config.mapTilerKey;
 
         map = new maplibregl.Map({ container: 'map', style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${mapTilerKey}`, center: [-98.6, 39.8], zoom: 3 });
         
