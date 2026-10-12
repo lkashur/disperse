@@ -244,8 +244,11 @@
     }
 
     async function handleRoadClick(e) {
-        // Find if a road was clicked (any layer starting with road-core-)
-        const feature = e.features && e.features.find(f => f.layer.id.startsWith('road-core-'));
+        // Global click events carry no features, so query the road layers under the click point
+        const roadLayers = map.getStyle().layers.map(l => l.id).filter(id => id.startsWith('road-core-'));
+        if (roadLayers.length === 0) return;
+        const box = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
+        const feature = map.queryRenderedFeatures(box, { layers: roadLayers })[0];
         if (!feature) return;
         
         openTab('nav');
