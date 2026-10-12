@@ -5,9 +5,7 @@
     <title>National Forest Explorer</title>
     <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <style>
+    <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>    <style>
         * { box-sizing: border-box; }
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: sans-serif; }
         
@@ -49,10 +47,18 @@
         .tab-btn.active { background: #fff; border-bottom: 2px solid #2e7d32; }
         .tab-content { padding: 15px; }
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 8px; display: block; }
-        .route-warning { font-size: 10px; color: #b71c1c; margin-top: 10px; line-height: 1.2; background: #ffebee; padding: 5px; border-radius: 4px; }
-        #route-info { margin-top: 10px; font-weight: bold; color: #0d47a1; }
-        .dir-item { margin-bottom: 5px; border-bottom: 1px dotted #999; padding: 5px 0; cursor: pointer; }
-        .dir-item:hover { background: #f0f0f0; }
+
+        /* Road Info Card */
+        .road-card h3 { margin: 0 0 4px; font-size: 18px; color: #222; }
+        .road-card .road-sub { font-size: 13px; color: #555; line-height: 1.4; }
+        .road-card .road-summary { font-size: 12px; color: #2e7d32; margin-top: 6px; }
+        .road-card section { border-top: 1px solid #e0e0e0; margin-top: 12px; padding-top: 10px; }
+        .road-card .section-title { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+        .road-card table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .road-card td { padding: 3px 0; vertical-align: top; }
+        .road-card td:last-child { text-align: right; color: #555; }
+        .road-card .closed-list { font-size: 12px; color: #888; margin-top: 6px; line-height: 1.4; }
+        .road-card .coords { font-size: 12px; color: #555; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -84,7 +90,7 @@
     <div id="drawer-panel">
         <div class="tab-bar">
             <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
-            <button class="tab-btn" onclick="openTab('nav')">Navigation</button>
+            <button class="tab-btn" onclick="openTab('road')">Road</button>
         </div>
         
         <div id="tools-pane" class="tab-content">
@@ -105,8 +111,8 @@
             <button id="btn-view-snapshot" style="background: #2e7d32; color: white; display: none;">View Selected Date</button>
         </div>
 
-        <div id="nav-pane" class="tab-content" style="display:none;">
-            <div id="nav-content"><em>Select a road on the map to see directions.</em></div>
+        <div id="road-pane" class="tab-content" style="display:none;">
+            <div id="road-content"><em>Select a road on the map to see its details.</em></div>
         </div>
     </div>
     
@@ -125,9 +131,8 @@
     let currentMode = 'state'; 
     let activeState = null;
     let activeForest = null;
-    let stateForests = []; 
-    let fullRouteGeometry = null;
-    let lastRouteSteps = [];
+    let stateForests = [];
+    let roadMarker = null;
 
     const B_COLORS = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#a65628', '#f781bf'];
 
@@ -147,7 +152,7 @@
     }
     function openTab(tab) {
         document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
-        document.getElementById('nav-pane').style.display = (tab === 'nav') ? 'block' : 'none';
+        document.getElementById('road-pane').style.display = (tab === 'road') ? 'block' : 'none';
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
         document.getElementById('map-wrapper').classList.remove('menu-closed');
         map.resize();
@@ -235,57 +240,95 @@
         map.addLayer({ "id": `boundary-label-${id}`, "type": "symbol", "source": `bound-${id}`, "source-layer": "forest_boundary", "layout": { "text-field": ["get", "NAME"], "text-size": 14 }, "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 } });
     }
 
-    // --- Navigation Logic ---
-    function ensureHighlightLayer() {
-        if (!map.getSource('highlight-route')) {
-            map.addSource('highlight-route', { type: 'geojson', data: { type: 'LineString', coordinates: [] } });
-            map.addLayer({ id: 'highlight-route', type: 'line', source: 'highlight-route', paint: { 'line-color': '#ff00ff', 'line-width': 10, 'line-opacity': 0.9 } });
-        }
+    // --- Road Info ---
+    // [label, access field, dates field] in MVUM order; field names are truncated by the shapefile format
+    const HIGHWAY_CLASSES = [
+        ['Passenger car', 'PASSENGERV', 'PASSENGE_1'],
+        ['High clearance', 'HIGHCLEARA', 'HIGHCLEA_1'],
+        ['Truck', 'TRUCK', 'TRUCK_DATE'],
+        ['Bus', 'BUS', 'BUS_DATESO'],
+        ['Motorhome', 'MOTORHOME', 'MOTORHOME_']
+    ];
+    const OHV_CLASSES = [
+        ['4WD > 50"', 'FOURWD_GT5', 'FOURWD_G_1'],
+        ['2WD > 50"', 'TWOWD_GT50', 'TWOWD_GT_1'],
+        ['Tracked OHV > 50"', 'TRACKED_OH', 'TRACKED__1'],
+        ['Other OHV > 50"', 'OTHER_OHV_', 'OTHER_OHV1'],
+        ['ATV', 'ATV', 'ATV_DATESO'],
+        ['Motorcycle', 'MOTORCYCLE', 'MOTORCYC_1'],
+        ['Other wheeled OHV ≤ 50"', 'OTHERWHEEL', 'OTHERWHE_1'],
+        ['Tracked OHV ≤ 50"', 'TRACKED__2', 'TRACKED__3'],
+        ['Other OHV ≤ 50"', 'OTHER_OH_1', 'OTHER_OH_2']
+    ];
+    const VEHICLE_GROUPS = [['All highway-legal vehicles', HIGHWAY_CLASSES], ['All off-highway vehicles', OHV_CLASSES]];
+
+    function escapeHtml(v) { return String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function sentenceCase(s) { return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(); }
+    // MVUM coded values look like "NAT - NATIVE MATERIAL"; keep the readable part
+    function describeCode(v) { return v ? sentenceCase(String(v).split(' - ').pop().trim()) : null; }
+    function describeMaintLevel(v) {
+        const m = v && /^(\d)\s*-\s*(.+)$/.exec(v);
+        return m ? `Level ${m[1]} · ${sentenceCase(m[2])}` : describeCode(v);
+    }
+    function formatDates(d) { return !d ? '' : d === '01/01-12/31' ? 'Yearlong' : d.replaceAll('-', '–').replaceAll(',', ', '); }
+
+    // Rows of [label, dates] for open classes; a group collapses to one row when every class in it shares the same dates
+    function vehicleAccessRows(p) {
+        return VEHICLE_GROUPS.flatMap(([groupLabel, classes]) => {
+            const open = classes.filter(([, access]) => p[access]).map(([label, access, dates]) => [label, formatDates(p[dates]) || p[access]]);
+            const uniqueDates = new Set(open.map(([, d]) => d));
+            return (open.length === classes.length && uniqueDates.size === 1) ? [[groupLabel, open[0][1]]] : open;
+        });
     }
 
-    async function handleRoadClick(e) {
+    function renderRoadCard(p, lngLat) {
+        const title = p.NAME || `Road ${p.ID}`;
+        const sub = [p.NAME && p.ID ? `Road #${p.ID}` : null, p.FORESTNAME, p.DISTRICTNA].filter(Boolean).map(escapeHtml).join('<br>');
+
+        const allowed = vehicleAccessRows(p);
+        const closed = [...HIGHWAY_CLASSES, ...OHV_CLASSES].filter(([, access]) => !p[access]).map(([label]) => label);
+        const vehicleRows = allowed.map(([label, dates]) => `<tr><td>✅ ${escapeHtml(label)}</td><td>${escapeHtml(dates)}</td></tr>`).join('');
+
+        const details = [
+            ['Surface', describeCode(p.SURFACETYP)],
+            ['Maintenance', describeMaintLevel(p.OPERATIONA)],
+            ['Season', p.SEASONAL ? sentenceCase(p.SEASONAL) : null],
+            ['Length', p.GIS_MILES != null ? (p.GIS_MILES < 0.1 ? '< 0.1 mi' : `${Number(p.GIS_MILES).toFixed(1)} mi`) : null]
+        ].filter(([, v]) => v);
+        const detailRows = details.map(([k, v]) => `<tr><td>${k}</td><td>${escapeHtml(v)}</td></tr>`).join('');
+
+        document.getElementById('road-content').innerHTML = `
+            <div class="road-card">
+                <h3>${escapeHtml(title)}</h3>
+                <div class="road-sub">${sub}</div>
+                ${p.MVUM_SYMBO ? `<div class="road-summary">${escapeHtml(p.MVUM_SYMBO)}</div>` : ''}
+                <section>
+                    <div class="section-title">Vehicles allowed</div>
+                    ${allowed.length ? `<table>${vehicleRows}</table>` : '<em>No per-vehicle details for this segment; see the summary above.</em>'}
+                    ${allowed.length && closed.length ? `<div class="closed-list">⛔ Not allowed: ${closed.map(escapeHtml).join(', ')}</div>` : ''}
+                </section>
+                ${details.length ? `<section><div class="section-title">Road details</div><table>${detailRows}</table></section>` : ''}
+                <section>
+                    <div class="section-title">Location</div>
+                    <div class="coords">${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}</div>
+                </section>
+            </div>
+        `;
+    }
+
+    function handleRoadClick(e) {
         // Global click events carry no features, so query the road layers under the click point
         const roadLayers = map.getStyle().layers.map(l => l.id).filter(id => id.startsWith('road-core-'));
         if (roadLayers.length === 0) return;
         const box = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
         const feature = map.queryRenderedFeatures(box, { layers: roadLayers })[0];
         if (!feature) return;
-        
-        openTab('nav');
-        const coords = e.lngLat;
-        const name = feature.properties.NAME || 'N/A';
-        document.getElementById('nav-content').innerHTML = `
-            <strong>Road:</strong> ${name}<br>
-            <input type="text" id="from-location" placeholder="Start address" style="width:100%; margin:10px 0;">
-            <button id="btn-get-route">Get Directions</button>
-            <div id="route-info"></div>
-            <p class="route-warning"><strong>⚠️ Verify closures with USFS MVUM.</strong></p>
-        `;
-        document.getElementById('btn-get-route').onclick = async () => {
-            const geo = await fetch(`/api/geocode?q=${encodeURIComponent(document.getElementById('from-location').value)}`).then(r => r.json());
-            const routeRes = await fetch('/api/route', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ start: geo.features[0].center, end: [coords.lng, coords.lat] }) });
-            const data = await routeRes.json();
-            fullRouteGeometry = data.features[0].geometry;
-            lastRouteSteps = processDirections(data.features[0].properties.segments[0].steps);
-            renderRouteInfo(lastRouteSteps); renderRoute(fullRouteGeometry);
-        };
-    }
 
-    function processDirections(steps) { return steps.map(s => ({ ...s, displayLabel: (s.name && s.name !== "-" && !s.instruction.includes(s.name)) ? `${s.instruction} (${s.name})` : s.instruction, miles: (s.distance / 1609.34).toFixed(1), wayPoints: s.way_points })); }
-    function renderRouteInfo(steps) { document.getElementById('route-info').innerHTML = `<div class="directions-list">${steps.map((s, idx) => `<div class="dir-item" onclick="highlightSegment(${idx})"><strong>${s.displayLabel}</strong> (${s.miles} mi)</div>`).join('')}</div>`; }
-    function highlightSegment(index) {
-        const step = lastRouteSteps[index];
-        const seg = fullRouteGeometry.coordinates.slice(step.wayPoints[0], step.wayPoints[1] + 1);
-        map.getSource('highlight-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: seg } });
-        const bbox = turf.bbox({type: 'LineString', coordinates: seg});
-        map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 50 });
-    }
-    function renderRoute(geometry) {
-        if (map.getSource('route')) map.getSource('route').setData(geometry);
-        else {
-            map.addSource('route', { type: 'geojson', data: geometry });
-            map.addLayer({ id: 'route-line', type: 'line', source: 'route', paint: { 'line-color': '#1976d2', 'line-width': 6, 'line-opacity': 0.8 } });
-        }
+        if (roadMarker) roadMarker.setLngLat(e.lngLat);
+        else roadMarker = new maplibregl.Marker({ color: '#2e7d32' }).setLngLat(e.lngLat).addTo(map);
+
+        renderRoadCard(feature.properties, e.lngLat);
+        openTab('road');
     }
 
     async function initApp() {
@@ -343,7 +386,6 @@
             refreshLayers();
         });
 
-        map.on('load', () => { ensureHighlightLayer(); });
         map.on('click', handleRoadClick); // Global listener to handle dynamic layer IDs
     }
 
