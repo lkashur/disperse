@@ -1,32 +1,22 @@
 // api/satellite-dates.js
-// Lists recent Sentinel-2 dates for a map extent, plus each scene's footprint and capture time
-// so the browser can tell which scene supplied any point of a mosaic.
-import { getAccessToken, MAX_CLOUD_COVER, MOSAIC_DAYS } from '../lib/copernicus.js';
+// Lists Sentinel-2 acquisition dates over a point for the current and previous five calendar
+// months, with each day's cloud cover. The browser filters by cloud cover itself.
+import { getAccessToken } from '../lib/copernicus.js';
 
 const SEARCH_URL = 'https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search';
-const LOOKBACK_DAYS = 90;
-const MAX_SPAN_DEG = 2;   // matches api/satellite-image.js
-const MAX_PAGES = 5;      // 100 scenes per page
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// ~1 m precision is plenty for footprints and keeps the response small
-function roundCoords(c) { return typeof c[0] === 'number' ? c.map(v => Math.round(v * 1e5) / 1e5) : c.map(roundCoords); }
+const MONTHS = 6;
+const MAX_PAGES = 5;          // 100 scenes per page
+const POINT_RADIUS_DEG = 0.001;
 
 export default async function handler(req, res) {
-  const bbox = String(req.query.bbox || '').split(',').map(Number);
-  const [west, south, east, north] = bbox;
-  if (bbox.length !== 4 || !bbox.every(Number.isFinite) || west >= east || south >= north ||
-      west < -180 || east > 180 || south < -90 || north > 90) {
-    return res.status(400).json({ error: 'Invalid map extent' });
-  }
-  if (east - west > MAX_SPAN_DEG || north - south > MAX_SPAN_DEG) {
-    return res.status(400).json({ error: 'Zoom in further to view satellite imagery' });
+  const lng = Number(req.query.lng);
+  const lat = Number(req.query.lat);
+  if (!Number.isFinite(lng) || !Number.isFinite(lat) || Math.abs(lng) > 180 || Math.abs(lat) > 90) {
+    return res.status(400).json({ error: 'Invalid coordinates' });
   }
 
-  const end = new Date();
-  const listStart = new Date(end.getTime() - LOOKBACK_DAYS * DAY_MS);
-  // Reach back one extra mosaic window so the oldest listed date's mosaic has its scenes too
-  const searchStart = new Date(listStart.getTime() - MOSAIC_DAYS * DAY_MS);
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (MONTHS - 1), 1));
 
   try {
     const token = await getAccessToken();
@@ -37,8 +27,8 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
-          bbox,
-          datetime: `${searchStart.toISOString()}/${end.toISOString()}`,
+          bbox: [lng - POINT_RADIUS_DEG, lat - POINT_RADIUS_DEG, lng + POINT_RADIUS_DEG, lat + POINT_RADIUS_DEG],
+          datetime: `${start.toISOString()}/${now.toISOString()}`,
           collections: ['sentinel-2-l2a'],
           limit: 100,
           ...(next != null && { next })
@@ -54,21 +44,19 @@ export default async function handler(req, res) {
       if (next == null) break;
     }
 
-    const scenes = features
-      .filter(f => f.geometry && (f.properties['eo:cloud_cover'] ?? 100) <= MAX_CLOUD_COVER)
-      .map(f => ({
-        datetime: f.properties.datetime,
-        cloudCover: Math.round(f.properties['eo:cloud_cover']),
-        geometry: { type: f.geometry.type, coordinates: roundCoords(f.geometry.coordinates) }
-      }));
-
-    const listStartDate = listStart.toISOString().slice(0, 10);
-    const dates = [...new Set(scenes.map(s => s.datetime.slice(0, 10)))]
-      .filter(d => d >= listStartDate)
-      .sort((a, b) => b.localeCompare(a));
+    // Overlapping tiles of one pass give several scenes per day; keep the clearest
+    const cloudByDate = new Map();
+    for (const f of features) {
+      const date = f.properties.datetime.slice(0, 10);
+      const cloud = f.properties['eo:cloud_cover'] ?? 100;
+      if (!cloudByDate.has(date) || cloud < cloudByDate.get(date)) cloudByDate.set(date, cloud);
+    }
+    const dates = [...cloudByDate]
+      .map(([date, cloud]) => ({ date, cloudCover: Math.round(cloud) }))
+      .sort((a, b) => b.date.localeCompare(a.date));
 
     res.setHeader('Cache-Control', 'public, s-maxage=3600');
-    return res.status(200).json({ mosaicDays: MOSAIC_DAYS, dates, scenes });
+    return res.status(200).json({ start: start.toISOString().slice(0, 10), end: now.toISOString().slice(0, 10), dates });
   } catch (error) {
     console.error('Satellite dates error:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
