@@ -151,6 +151,7 @@
     let activeForest = null;
     let stateForests = [];
     let roadMarker = null;
+    let forestHoverPopup = null;
 
     const B_COLORS = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#a65628', '#f781bf'];
 
@@ -336,8 +337,21 @@
         if (!f.boundary_file || f.boundary_file === "undefined") return;
         map.addSource(`bound-${id}`, { type: 'vector', url: `pmtiles://tiles/${f.boundary_file}` });
         map.addLayer({ "id": `boundary-fill-${id}`, "type": "fill", "source": `bound-${id}`, "source-layer": "forest_boundary", "paint": { "fill-color": color, "fill-opacity": 0.3 } });
-        map.addLayer({ "id": `boundary-label-${id}`, "type": "symbol", "source": `bound-${id}`, "source-layer": "forest_boundary", "layout": { "text-field": ["get", "NAME"], "text-size": 14 }, "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 } });
+        map.addLayer({ "id": `boundary-label-${id}`, "type": "symbol", "source": `bound-${id}`, "source-layer": "forest_boundary", "layout": { "text-field": ["get", "FORESTNAME"], "text-size": 14 }, "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 } });
     }
+
+    // State mode only: in forest mode the selected forest is already obvious
+    function handleForestHover(e) {
+        const fillLayers = currentMode === 'state' && boundaryVisible
+            ? map.getStyle().layers.map(l => l.id).filter(id => id.startsWith('boundary-fill-'))
+            : [];
+        const feature = fillLayers.length ? map.queryRenderedFeatures(e.point, { layers: fillLayers })[0] : null;
+        const name = feature && feature.properties.FORESTNAME;
+        if (!name) return hideForestHover();
+        if (!forestHoverPopup) forestHoverPopup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
+        forestHoverPopup.setLngLat(e.lngLat).setText(name).addTo(map);
+    }
+    function hideForestHover() { if (forestHoverPopup) forestHoverPopup.remove(); }
 
     // --- Road Info ---
     // [label, access field, dates field] in MVUM order; field names are truncated by the shapefile format
@@ -493,6 +507,8 @@
         });
 
         map.on('click', handleRoadClick); // Global listener to handle dynamic layer IDs
+        map.on('mousemove', handleForestHover);
+        map.on('mouseout', hideForestHover);
     }
 
     initApp();
