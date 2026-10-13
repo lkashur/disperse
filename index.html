@@ -337,7 +337,6 @@
         if (!f.boundary_file || f.boundary_file === "undefined") return;
         map.addSource(`bound-${id}`, { type: 'vector', url: `pmtiles://tiles/${f.boundary_file}` });
         map.addLayer({ "id": `boundary-fill-${id}`, "type": "fill", "source": `bound-${id}`, "source-layer": "forest_boundary", "paint": { "fill-color": color, "fill-opacity": 0.3 } });
-        map.addLayer({ "id": `boundary-label-${id}`, "type": "symbol", "source": `bound-${id}`, "source-layer": "forest_boundary", "layout": { "text-field": ["get", "FORESTNAME"], "text-size": 14 }, "paint": { "text-color": "#000", "text-halo-color": "#fff", "text-halo-width": 2 } });
     }
 
     // State mode only: in forest mode the selected forest is already obvious
