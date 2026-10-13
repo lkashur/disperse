@@ -34,11 +34,8 @@
         .basemap-option:hover .thumb { border-color: #2e7d32; }
 
         /* --- Satellite Control --- */
-        .map-fab.is-on { background: #e8f5e9; color: #2e7d32; }
 
         /* --- Imagery Tab --- */
-        .sat-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .sat-header button { width: auto; padding: 2px 8px; margin: 0; }
         .sat-slider { display: block; font-size: 12px; color: #555; margin-bottom: 8px; }
         .sat-slider input { width: 100%; }
         .sat-status { font-size: 12px; color: #555; margin: 4px 0 12px; line-height: 1.4; }
@@ -61,7 +58,7 @@
         .menu-closed #drawer-handle { left: 0; border-left: 1px solid #999; }
 
         .tab-bar { display: flex; border-bottom: 1px solid #ccc; background: #f8f8f8; }
-        .tab-btn { flex: 1; padding: 12px; border: none; background: none; cursor: pointer; font-weight: bold; }
+        .tab-btn { flex: 1; padding: 12px 6px; border: none; background: none; cursor: pointer; font-weight: bold; font-size: 13px; }
         .tab-btn.active { background: #fff; border-bottom: 2px solid #2e7d32; }
         .tab-content { padding: 15px; }
         select, button { padding: 10px; cursor: pointer; width: 100%; margin-bottom: 8px; display: block; }
@@ -105,21 +102,14 @@
         </div>
     </div>
     
-    <div id="satellite-control" class="maplibregl-ctrl maplibregl-ctrl-group">
-        <button class="map-fab" id="satellite-trigger">
-            <span class="tooltip">Recent satellite imagery</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg>
-        </button>
-    </div>
-
     <div id="drawer-panel">
         <div class="tab-bar">
-            <button class="tab-btn active" onclick="openTab('tools')">Tools</button>
-            <button class="tab-btn" onclick="openTab('road')">Road</button>
-            <button class="tab-btn" id="imagery-tab" onclick="openTab('imagery')" style="display:none;">Imagery</button>
+            <button class="tab-btn active" data-tab="usage" onclick="openTab('usage')">Usage Mode</button>
+            <button class="tab-btn" data-tab="mvum" onclick="openTab('mvum')">MVUM</button>
+            <button class="tab-btn" data-tab="imagery" onclick="openTab('imagery')">Recent Imagery</button>
         </div>
         
-        <div id="tools-pane" class="tab-content">
+        <div id="usage-pane" class="tab-content">
             <div id="mode-state" class="mode-container" onclick="setMode('state')">
                 <span class="mode-label">State Mode</span>
                 <select id="state-select"><option value="" selected>-- Select a State --</option></select>
@@ -129,20 +119,21 @@
                 <select id="forest-select"><option value="" disabled selected>-- Select a Forest --</option></select>
             </div>
             <hr>
-            <button id="toggle-roads">Toggle MVUM Roads</button>
             <button id="toggle-boundary">Toggle Forest Boundary</button>
         </div>
 
-        <div id="road-pane" class="tab-content" style="display:none;">
+        <div id="mvum-pane" class="tab-content" style="display:none;">
+            <button id="toggle-roads">Toggle MVUM Roads</button>
+            <hr>
             <div id="road-content"><em>Select a road on the map to see its details.</em></div>
         </div>
 
         <div id="imagery-pane" class="tab-content" style="display:none;">
-            <div class="sat-header"><strong>Recent satellite imagery</strong><button id="sat-close" title="Turn off satellite imagery">✕</button></div>
             <label class="sat-slider">Max cloud cover: <strong id="sat-cloud-value">20%</strong> <span id="sat-count"></span>
                 <input type="range" id="sat-cloud" min="0" max="100" step="5" value="20"></label>
             <label class="sat-slider">Opacity <input type="range" id="sat-opacity" min="0" max="100" value="100"></label>
             <div class="sat-status" id="sat-status"></div>
+            <button id="sat-clear" style="display:none;">Clear Imagery</button>
             <div id="sat-calendars"></div>
         </div>
     </div>
@@ -180,12 +171,11 @@
         document.getElementById('mode-forest').className = (mode === 'forest') ? 'mode-container' : 'mode-container inactive';
     }
     function openTab(tab) {
-        document.getElementById('tools-pane').style.display = (tab === 'tools') ? 'block' : 'none';
-        document.getElementById('road-pane').style.display = (tab === 'road') ? 'block' : 'none';
-        document.getElementById('imagery-pane').style.display = (tab === 'imagery') ? 'block' : 'none';
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText.toLowerCase() === tab));
+        ['usage', 'mvum', 'imagery'].forEach(t => { document.getElementById(`${t}-pane`).style.display = (t === tab) ? 'block' : 'none'; });
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
         document.getElementById('map-wrapper').classList.remove('menu-closed');
         map.resize();
+        if (tab === 'imagery') { renderCalendars(); loadSatelliteDates(); }
     }
 
     function changeStyle(val) {
@@ -199,7 +189,6 @@
     const SAT_MAX_ZOOM = 14;
     const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    let satActive = false;
     let satDates = new Map();  // 'YYYY-MM-DD' -> cloud cover % over the map center
     let satRange = null;       // { start, end } dates the calendars span
     let satSelected = null;    // date shown on the map
@@ -259,7 +248,7 @@
     function addSatelliteLayer() {
         if (map.getLayer(SAT_LAYER)) map.removeLayer(SAT_LAYER);
         if (map.getSource(SAT_LAYER)) map.removeSource(SAT_LAYER);
-        if (!satActive || !satSelected) return;
+        if (!satSelected) return;
         map.addSource(SAT_LAYER, {
             type: 'raster',
             tiles: [`${location.origin}/api/satellite-tile?z={z}&x={x}&y={y}&date=${satSelected}`],
@@ -294,33 +283,18 @@
 
     function selectSatelliteDate(date) {
         satSelected = date;
+        document.getElementById('sat-clear').style.display = date ? 'block' : 'none';
         addSatelliteLayer();
         renderCalendars();
         updateSatStatus();
     }
 
+    // Calendars follow the map center only while the tab is open; opening it catches up
     function onSatelliteMapMove() {
-        if (!satActive) return;
         updateSatStatus();
+        if (document.getElementById('imagery-pane').style.display === 'none') return;
         clearTimeout(satMoveTimer);
         satMoveTimer = setTimeout(loadSatelliteDates, 400);
-    }
-
-    function toggleSatellite() {
-        satActive = !satActive;
-        document.getElementById('satellite-trigger').classList.toggle('is-on', satActive);
-        document.getElementById('imagery-tab').style.display = satActive ? '' : 'none';
-        if (satActive) {
-            openTab('imagery');
-            renderCalendars();
-            loadSatelliteDates();
-            return;
-        }
-        satRequestId++; clearTimeout(satMoveTimer);
-        satSelected = null; satCenterKey = null; satDates = new Map(); satRange = null;
-        addSatelliteLayer();
-        renderCalendars();
-        if (document.getElementById('imagery-pane').style.display !== 'none') openTab('tools');
     }
 
     function updateTerrain(styleVal) {
@@ -453,7 +427,7 @@
         else roadMarker = new maplibregl.Marker({ color: '#2e7d32' }).setLngLat(e.lngLat).addTo(map);
 
         renderRoadCard(feature.properties, e.lngLat);
-        openTab('road');
+        openTab('mvum');
         return true;
     }
 
@@ -466,7 +440,6 @@
         map.addControl(new maplibregl.FullscreenControl({ container: document.querySelector('#map-wrapper') }), 'top-right');
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
         map.addControl(new DomControl('basemap-control'), 'top-right');
-        map.addControl(new DomControl('satellite-control'), 'top-right');
 
         // Basemap Logic
         const trigger = document.getElementById('basemap-trigger');
@@ -475,8 +448,7 @@
         map.on('click', () => { if (panel.classList.contains('is-active')) panel.classList.remove('is-active'); });
         
         // Satellite Logic
-        document.getElementById('satellite-trigger').addEventListener('click', toggleSatellite);
-        document.getElementById('sat-close').addEventListener('click', toggleSatellite);
+        document.getElementById('sat-clear').addEventListener('click', () => selectSatelliteDate(null));
         document.getElementById('sat-cloud').addEventListener('input', renderCalendars);
         document.getElementById('sat-opacity').addEventListener('input', (e) => { if (map.getLayer(SAT_LAYER)) map.setPaintProperty(SAT_LAYER, 'raster-opacity', e.target.value / 100); });
         document.getElementById('sat-calendars').addEventListener('click', (e) => { const day = e.target.closest('[data-date]'); if (day) selectSatelliteDate(day.dataset.date); });
@@ -501,6 +473,7 @@
             const stateInfo = allStatesData[activeState];
             stateForests = allForestData.filter(f => stateInfo.forests.includes(f.name));
             map.fitBounds([[stateInfo.bounds[0], stateInfo.bounds[1]], [stateInfo.bounds[2], stateInfo.bounds[3]]], { padding: 50 });
+            boundaryVisible = true;
             refreshLayers();
         });
 
@@ -515,6 +488,7 @@
             activeForest = JSON.parse(e.target.value);
             const b = activeForest.bounds;
             map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 50 });
+            boundaryVisible = true;
             refreshLayers();
         });
 
